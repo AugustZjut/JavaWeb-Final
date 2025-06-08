@@ -1,0 +1,283 @@
+target/
+!.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+
+### IntelliJ IDEA ###
+.idea/modules.xml
+.idea/jarRepositories.xml
+.idea/compiler.xml
+.idea/libraries/
+*.iws
+*.iml
+*.ipr
+
+### Eclipse ###
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+
+### NetBeans ###
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+build/
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+### VS Code ###
+.vscode/
+
+### Mac OS ###
+.DS_Store
+
+# Created by .ignore support tool (https://www.toptal.com/developers/gitignore/api/java,maven,windows,eclipse,intellij,netbeans,visualstudiocode)
+# Edit at https://www.toptal.com/developers/gitignore?templates=java,maven,windows,eclipse,intellij,netbeans,visualstudiocode
+
+### Eclipse ###
+# Compiled class file
+*.class
+
+# Log file
+*.log
+
+# BlueJ files
+*.ctxt
+
+# Mobile Tools for Java (J2ME)
+.mtj.tmp/
+
+# Package Files #
+*.jar
+*.war
+*.ear
+*.zip
+*.tar.gz
+*.rar
+
+# virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
+hs_err_pid*
+
+### Intellij ###
+# Covers JetBrains IDEs: IntelliJ IDEA, PhpStorm, WebStorm, PyCharm, RubyMine, AppCode, CLion, GoLand, DataGrip, Rider, Android Studio
+# Reference: https://intellij-support.jetbrains.com/hc/en-us/articles/206544839
+
+# User-specific stuff
+.idea/**/workspace.xml
+.idea/**/tasks.xml
+.idea/**/usage.statistics.xml
+.idea/**/dictionaries
+.idea/**/shelf
+
+# Generated files
+.idea/**/contentModel.xml
+
+# Sensitive or high-churn files
+.idea/**/dataSources/
+.idea/**/dataSources.ids
+.idea/**/dataSources.local.xml
+.idea/**/sqlDataSources.xml
+.idea/**/dynamic.xml
+.idea/**/uiDesigner.xml
+.idea/**/dbnavigator.xml
+
+# Gradle
+.idea/**/gradle.xml
+.idea/**/libraries
+
+# CMake
+cmake-build-*/
+
+# Mongo Explorer plugin
+.idea/**/mongoSettings.xml
+
+# File-based project format
+*.iws
+
+# IntelliJ
+out/
+
+# mpeltonen/sbt-idea plugin
+.idea_modules/
+
+# JIRA plugin
+lib/jira-connector-java-1.0-SNAPSHOT.jar
+atlassian-ide-plugin.xml
+
+# Cursive Clojure plugin
+.idea/replstate.xml
+
+# Crashlytics plugin (for Android Studio and IntelliJ)
+com_crashlytics_export_strings.xml
+crashlytics.properties
+crashlytics-build.properties
+fabric.properties
+
+# Editor-based Rest Client
+.idea/httpRequests
+
+# Android studio 3.1+ serialized cache file
+.idea/caches/build_info.xml
+
+### Java ###
+# Compiled class file
+*.class
+
+# Log file
+*.log
+
+# BlueJ files
+*.ctxt
+
+# Mobile Tools for Java (J2ME)
+.mtj.tmp/
+
+# Package Files #
+# *.jar # Typically, library jars are checked in, but application jars are ignored.
+# *.war # Application war files are typically ignored.
+# *.ear # Application ear files are typically ignored.
+*.zip
+*.tar.gz
+*.rar
+
+# virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
+hs_err_pid*
+replay_pid*
+
+### Maven ###
+# Generated folder
+target/
+
+# Temporary files created by Maven resolver (documentation: https://maven.apache.org/guides/mini/guide-maven-internals.html)
+.repository/
+
+# Local Maven repository
+# .m2/repository/
+
+# Eclipse m2e generated files
+# .classpath
+# .project
+# .settings/
+
+# IDEA generated files
+# *.iml
+# *.ipr
+# *.iws
+# .idea/
+
+# NetBeans generated files
+# nbproject/
+# build/
+# dist/
+# nbbuild/
+# .nbattrs
+
+# VS Code generated files
+.vscode/
+
+# Mac OS X generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+
+# Windows generated files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+### NetBeans ###
+nbproject/private/
+build/
+dist/
+nbbuild/
+.nbattrs
+
+# NetBeans profiler
+.nbprofile/
+
+# NetBeans Java EE Profiler (Expression Factory EL functions only)
+nbproject/profiler-javaee.properties
+
+# NetBeans dependency cache
+var/cache/index/
+
+# NetBeans Heap Dump
+var/log/heapdump.hprof
+
+# NetBeans Profiler Snapshots (.nps)
+var/log/*.nps
+
+# NetBeans Entity class wizard (REVERSED_NAMES) (Issue #6015)
+.netbeans_reversed_ ingeniería
+.netbeans_reversed_entidades
+.netbeans_reversed_modelo
+
+### VisualStudioCode ###
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace
+
+### Windows ###
+# Windows thumbnail cache files
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs.db:encryptable
+
+# Folder config file
+Desktop.ini
+
+# Recycle Bin used on file shares
+$RECYCLE.BIN/
+
+# Windows Installer files
+*.cab
+*.msi
+*.msm
+*.msp
+
+# Windows shortcuts
+*.lnk
+
+# End of https://www.toptal.com/developers/gitignore/api/java,maven,windows,eclipse,intellij,netbeans,visualstudiocode
+
+# Customizations
+.settings/
+.classpath
+.project
+
+# Ignore sensitive files
+# db.properties # It's better to specify the full path for sensitive files
+
+# Ignore compiled output and packages if not already covered
+/target/
+*.war
+*.jar
+
+# IDE specific files
+.idea/
+*.iml
+*.iws
+
+# OS specific files
+.DS_Store
+Thumbs.db
+
+# Log files
+*.log
+hs_err_pid*
+
+# Secrets or local configuration that should not be committed
+/src/main/resources/db.properties

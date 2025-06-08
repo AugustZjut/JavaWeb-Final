@@ -1,0 +1,228 @@
+package com.example.webdemo.servlet.admin;
+
+import com.example.webdemo.beans.AuditLog;
+import com.example.webdemo.beans.Department;
+import com.example.webdemo.beans.User;
+import com.example.webdemo.dao.AuditLogDAO;
+import com.example.webdemo.dao.DepartmentDAO;
+
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServlet;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
+import java.io.IOException;
+import java.sql.SQLException;
+import java.sql.Timestamp;
+import java.util.List;
+import java.util.UUID;
+
+public class DepartmentManagementServlet extends HttpServlet {
+    private static final long serialVersionUID = 1L;
+    private DepartmentDAO departmentDAO;
+    private AuditLogDAO auditLogDAO;
+
+    @Override
+    public void init() throws ServletException {
+        departmentDAO = new DepartmentDAO();
+        auditLogDAO = new AuditLogDAO();
+    }
+
+    protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+        String action = request.getParameter("action");
+        if (action == null) {
+            action = "list"; // Default action
+        }
+
+        try {
+            switch (action) {
+                case "add":
+                    showNewForm(request, response);
+                    break;
+                case "edit":
+                    showEditForm(request, response);
+                    break;
+                case "delete":
+                    deleteDepartment(request, response);
+                    break;
+                case "list":
+                default:
+                    listDepartments(request, response);
+                    break;
+            }
+        } catch (SQLException ex) {
+            request.setAttribute("error", "Database error: " + ex.getMessage());
+            listDepartmentsWithError(request, response, "Database error: " + ex.getMessage());
+        } catch (Exception ex) {
+            request.setAttribute("error", "An unexpected error occurred: " + ex.getMessage());
+            listDepartmentsWithError(request, response, "An unexpected error occurred: " + ex.getMessage());
+        }
+    }
+
+    protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+        String action = request.getParameter("action");
+        if ("save".equals(action)) {
+            try {
+                saveDepartment(request, response);
+            } catch (SQLException ex) {
+                 request.setAttribute("error", "Database error during save: " + ex.getMessage());
+                 // Forward to form with error and existing data if possible
+                 String idParam = request.getParameter("departmentId");
+                 Department department = new Department();
+                 department.setDepartmentId(idParam); // departmentId is String
+                 department.setDepartmentCode(request.getParameter("departmentCode"));
+                 department.setDepartmentType(request.getParameter("departmentType"));
+                 department.setDepartmentName(request.getParameter("departmentName"));
+                 request.setAttribute("department", department);
+                 request.setAttribute("formAction", (idParam == null || idParam.isEmpty()) ? "add" : "edit");
+                 request.getRequestDispatcher("/admin/departmentForm.jsp").forward(request, response);
+            } catch (Exception ex) {
+                request.setAttribute("error", "An unexpected error occurred during save: " + ex.getMessage());
+                doGet(request, response); // Or redirect to list with a general error
+            }
+        } else {
+            doGet(request, response); 
+        }
+    }
+
+    private void listDepartments(HttpServletRequest request, HttpServletResponse response) throws SQLException, IOException, ServletException {
+        List<Department> listDepartment = departmentDAO.getAllDepartments();
+        request.setAttribute("listDepartment", listDepartment);
+        request.getRequestDispatcher("/admin/departmentList.jsp").forward(request, response);
+    }
+    
+    private void listDepartmentsWithError(HttpServletRequest request, HttpServletResponse response, String errorMessage) throws IOException, ServletException {
+        try {
+            List<Department> listDepartment = departmentDAO.getAllDepartments();
+            request.setAttribute("listDepartment", listDepartment);
+        } catch (SQLException e) {
+            // If fetching departments also fails, set an empty list or handle appropriately
+            request.setAttribute("listDepartment", new java.util.ArrayList<Department>());
+            if (errorMessage == null || errorMessage.isEmpty()) {
+                 request.setAttribute("error", "Could not retrieve department list after an initial error. " + e.getMessage());
+            } else {
+                 request.setAttribute("error", errorMessage + " Additionally, failed to refresh department list: " + e.getMessage());
+            }
+        }
+        request.getRequestDispatcher("/admin/departmentList.jsp").forward(request, response);
+    }
+
+
+    private void showNewForm(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+        request.setAttribute("department", new Department()); 
+        request.setAttribute("formAction", "add");
+        request.getRequestDispatcher("/admin/departmentForm.jsp").forward(request, response);
+    }
+
+    private void showEditForm(HttpServletRequest request, HttpServletResponse response) throws SQLException, ServletException, IOException {
+        String id = request.getParameter("id");
+        Department existingDepartment = departmentDAO.getDepartmentById(id);
+        if (existingDepartment == null) {
+            request.setAttribute("error", "Department not found.");
+            listDepartments(request, response);
+            return;
+        }
+        request.setAttribute("department", existingDepartment);
+        request.setAttribute("formAction", "edit");
+        request.getRequestDispatcher("/admin/departmentForm.jsp").forward(request, response);
+    }
+
+    private void saveDepartment(HttpServletRequest request, HttpServletResponse response) throws SQLException, IOException, ServletException {
+        String departmentId = request.getParameter("departmentId");
+        String departmentCode = request.getParameter("departmentCode");
+        String departmentType = request.getParameter("departmentType");
+        String departmentName = request.getParameter("departmentName");
+
+        Department department = new Department();
+        department.setDepartmentCode(departmentCode);
+        department.setDepartmentType(departmentType);
+        department.setDepartmentName(departmentName);
+
+        HttpSession session = request.getSession(false);
+        User currentUser = (session != null) ? (User) session.getAttribute("adminUser") : null; // Corrected session attribute name
+        String currentUsername = (currentUser != null) ? currentUser.getUsername() : "System";
+        String currentUserId = (currentUser != null) ? currentUser.getUserId() : null; // Changed to String, default to null
+
+        String actionDetails;
+        boolean success;
+
+        if (departmentId == null || departmentId.isEmpty()) {
+            // New department
+            department.setDepartmentId(UUID.randomUUID().toString());
+            success = departmentDAO.addDepartment(department);
+            actionDetails = "Created new department: " + department.getDepartmentName() + " (Code: " + department.getDepartmentCode() + ")";
+            if (success) {
+                request.setAttribute("message", "Department added successfully.");
+            } else {
+                request.setAttribute("error", "Failed to add department.");
+            }
+        } else {
+            // Update existing department
+            department.setDepartmentId(departmentId);
+            success = departmentDAO.updateDepartment(department);
+            actionDetails = "Updated department: " + department.getDepartmentName() + " (ID: " + department.getDepartmentId() + ")";
+             if (success) {
+                request.setAttribute("message", "Department updated successfully.");
+            } else {
+                request.setAttribute("error", "Failed to update department.");
+            }
+        }
+
+        if (success) {
+            AuditLog log = new AuditLog(); // Use default constructor
+            log.setUserId(currentUserId);
+            log.setUsername(currentUsername);
+            log.setActionType((departmentId == null || departmentId.isEmpty()) ? "DEPARTMENT_CREATE" : "DEPARTMENT_UPDATE");
+            log.setActionDetails(actionDetails);
+            log.setActionTime(new Timestamp(System.currentTimeMillis()));
+            log.setClientIp(request.getRemoteAddr());
+            auditLogDAO.createLog(log);
+        }
+        
+        // Redirect to list view after save, regardless of success, to show message/error
+        listDepartments(request, response); 
+    }
+
+    private void deleteDepartment(HttpServletRequest request, HttpServletResponse response) throws SQLException, IOException, ServletException {
+        String id = request.getParameter("id");
+        Department deptToDelete = departmentDAO.getDepartmentById(id);
+        String message = "";
+        String error = "";
+
+        if (deptToDelete == null) {
+            error = "Department not found for deletion.";
+        } else {
+            try {
+                boolean success = departmentDAO.deleteDepartment(id);
+                if (success) {
+                    message = "Department \"" + deptToDelete.getDepartmentName() + "\" deleted successfully.";
+                    
+                    HttpSession session = request.getSession(false);
+                    User currentUser = (session != null) ? (User) session.getAttribute("adminUser") : null; // Corrected session attribute name
+                    String currentUsername = (currentUser != null) ? currentUser.getUsername() : "System";
+                    String currentUserId = (currentUser != null) ? currentUser.getUserId() : null; // Changed to String, default to null
+
+                    AuditLog log = new AuditLog(); // Use default constructor
+                    log.setUserId(currentUserId);
+                    log.setUsername(currentUsername);
+                    log.setActionType("DEPARTMENT_DELETE");
+                    log.setActionDetails("Deleted department: " + deptToDelete.getDepartmentName() + " (ID: " + id + ")");
+                    log.setActionTime(new Timestamp(System.currentTimeMillis()));
+                    log.setClientIp(request.getRemoteAddr());
+                    auditLogDAO.createLog(log);
+                } else {
+                    error = "Failed to delete department \"" + deptToDelete.getDepartmentName() + "\". It might be in use or a database error occurred.";
+                }
+            } catch (SQLException ex) {
+                 if (ex.getMessage().contains("users are still associated")) {
+                    error = "Cannot delete department: " + deptToDelete.getDepartmentName() + " as users are still associated with it.";
+                } else {
+                    error = "Error deleting department \"" + deptToDelete.getDepartmentName() + "\": " + ex.getMessage();
+                }
+            }
+        }
+        request.setAttribute("message", message);
+        request.setAttribute("error", error);
+        listDepartments(request, response);
+    }
+}
