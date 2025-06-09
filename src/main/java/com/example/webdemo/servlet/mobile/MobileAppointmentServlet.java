@@ -8,7 +8,6 @@ import com.example.webdemo.util.CryptoUtils;
 import com.example.webdemo.util.DBUtils;
 
 import jakarta.servlet.ServletException;
-import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -22,7 +21,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-@WebServlet("/mobile/makeAppointment")
+// @WebServlet("/mobile/makeAppointment") // Removed as per web.xml configuration
 public class MobileAppointmentServlet extends HttpServlet {
     private static final long serialVersionUID = 1L;
     private AppointmentDAO appointmentDAO;
@@ -67,17 +66,24 @@ public class MobileAppointmentServlet extends HttpServlet {
 
         // Basic validation
         if (applicantName == null || applicantName.trim().isEmpty() ||
-            applicantIdCard == null || applicantIdCard.trim().isEmpty() ||
+            applicantIdCard == null || applicantIdCard.trim().isEmpty() || // Original check uses trim for emptiness
             applicantPhone == null || applicantPhone.trim().isEmpty() ||
             appointmentTimeStr == null || appointmentTimeStr.trim().isEmpty()) {
             request.setAttribute("errorMessage", "必填字段不能为空 (姓名, 身份证, 电话, 预约时间).");
+            System.out.println("Validation Error: Missing required fields. ApplicantID was: " + applicantIdCard);
             request.getRequestDispatcher("/mobile/makeAppointment.jsp").forward(request, response);
             return;
         }
         
-        // Validate ID card format (basic)
-        if (!applicantIdCard.matches("^\\\\d{17}[\\\\dX]$|^\\\\d{15}$")){
-            request.setAttribute("errorMessage", "访客身份证号格式不正确.");
+        // Log the raw and trimmed ID card value
+        System.out.println("Raw applicantIdCard from request: [" + applicantIdCard + "]");
+        String trimmedApplicantIdCard = applicantIdCard.trim();
+        System.out.println("Trimmed applicantIdCard: [" + trimmedApplicantIdCard + "]");
+
+        // Validate ID card format (basic) - Allow 'x' or 'X', 18 digits only
+        if (!trimmedApplicantIdCard.matches("^\\d{17}[\\dXx]$")){ // Corrected regex: \\d for digit
+            request.setAttribute("errorMessage", "访客身份证号格式不正确 (应为18位).");
+            System.out.println("Validation Error: ID card format incorrect. Value was: [" + trimmedApplicantIdCard + "]");
             request.getRequestDispatcher("/mobile/makeAppointment.jsp").forward(request, response);
             return;
         }
@@ -96,20 +102,22 @@ public class MobileAppointmentServlet extends HttpServlet {
 
         Appointment appointment = new Appointment();
         appointment.setAppointmentId(UUID.randomUUID().toString());
-        appointment.setApplicantName(applicantName); // Will be encrypted in DAO
-        appointment.setApplicantIdCard(applicantIdCard); // Will be encrypted in DAO
-        appointment.setApplicantPhone(applicantPhone); // Will be encrypted in DAO
+        appointment.setApplicantName(applicantName.trim()); // Trim before setting
+        appointment.setApplicantIdCard(trimmedApplicantIdCard); // Use trimmed and validated ID
+        appointment.setApplicantPhone(applicantPhone.trim()); // Trim before setting
         // appointment.setOrganization(organization); // Corrected: use setApplicantOrganization
-        appointment.setApplicantOrganization(organization);
+        appointment.setApplicantOrganization(organization != null ? organization.trim() : null); // Trim before setting
         // appointment.setAppointmentType(appointmentType); // Corrected: use enum.name()
         appointment.setAppointmentType(appointmentTypeEnum.name());
         // appointment.setCampus(campus); // Corrected: use enum.name()
         appointment.setCampus(campusEnum.name());
-        appointment.setAppointmentTime(appointmentTime);
+        // appointment.setAppointmentTime(appointmentTime);
+        appointment.setEntryDatetime(appointmentTime); // 使用更正的setter方法
         // appointment.setTransportation(transportation); // Corrected: use setTransportMode with String
         appointment.setTransportMode(transportationStr);
         appointment.setLicensePlate(licensePlate); // Potentially encrypt if sensitive
-        appointment.setSubmissionTime(new Timestamp(System.currentTimeMillis()));
+        // appointment.setSubmissionTime(new Timestamp(System.currentTimeMillis()));
+        appointment.setApplicationDate(new Timestamp(System.currentTimeMillis())); // Corrected to setApplicationDate
 
         // if (appointmentType == Appointment.AppointmentType.OFFICIAL_VISIT) { // Original incorrect line
         if (appointmentTypeEnum == Appointment.AppointmentType.OFFICIAL_VISIT) { // Corrected: use appointmentTypeEnum
@@ -121,16 +129,16 @@ public class MobileAppointmentServlet extends HttpServlet {
                 request.getRequestDispatcher("/mobile/makeAppointment.jsp").forward(request, response);
                 return;
             }
-            appointment.setVisitDepartment(visitDepartment);
+            appointment.setVisitDepartment(visitDepartment.trim()); // Trim
             // appointment.setContactPersonName(contactPersonName); // Potentially encrypt // Corrected: use setVisitContactPerson
-            appointment.setVisitContactPerson(contactPersonName); // Potentially encrypt
-            appointment.setContactPersonPhone(contactPersonPhone); // Potentially encrypt
-            appointment.setVisitReason(visitReason);
-            // appointment.setStatus(Appointment.AppointmentStatus.PENDING_APPROVAL); // Corrected: use ApprovalStatus enum
-            appointment.setApprovalStatus(Appointment.ApprovalStatus.PENDING.name());
+            appointment.setVisitContactPerson(contactPersonName.trim()); // Trim
+            appointment.setContactPersonPhone(contactPersonPhone.trim()); // Trim
+            appointment.setVisitReason(visitReason.trim()); // Trim
+            // appointment.setApprovalStatus(Appointment.ApprovalStatus.PENDING.name());
+            appointment.setStatus(Appointment.ApprovalStatus.PENDING.name()); // Corrected to setStatus
         } else {
-            // appointment.setStatus(Appointment.AppointmentStatus.APPROVED); // Auto-approve public access // Corrected: use ApprovalStatus enum
-            appointment.setApprovalStatus(Appointment.ApprovalStatus.AUTO_APPROVED.name()); // Auto-approve public access
+            // appointment.setApprovalStatus(Appointment.ApprovalStatus.AUTO_APPROVED.name()); // Auto-approve public access
+            appointment.setStatus(Appointment.ApprovalStatus.AUTO_APPROVED.name()); // Corrected to setStatus
         }
 
         List<AccompanyingPerson> accompanyingPersons = new ArrayList<>();
@@ -140,13 +148,16 @@ public class MobileAppointmentServlet extends HttpServlet {
 
         if (accNames != null) {
             for (int i = 0; i < accNames.length; i++) {
-                if (accNames[i] != null && !accNames[i].trim().isEmpty() &&
-                    accIdCards[i] != null && !accIdCards[i].trim().isEmpty() &&
-                    accPhones[i] != null && !accPhones[i].trim().isEmpty()) {
+                // Trim all parts of accompanying person's data at the beginning of the check
+                String currentAccName = (accNames[i] != null) ? accNames[i].trim() : "";
+                String currentAccIdCard = (accIdCards[i] != null) ? accIdCards[i].trim() : "";
+                String currentAccPhone = (accPhones[i] != null) ? accPhones[i].trim() : "";
+
+                if (!currentAccName.isEmpty() && !currentAccIdCard.isEmpty() && !currentAccPhone.isEmpty()) {
                     
-                    // Validate accompanying ID card format (basic)
-                    if (!accIdCards[i].matches("^\\d{17}[\\dX]$|^\\d{15}$")){
-                        request.setAttribute("errorMessage", "随行人员 " + (i+1) + " 身份证号格式不正确.");
+                    // Validate accompanying ID card format (basic) - CORRECTED REGEX and use trimmed, allow 'x' or 'X', 18 digits only
+                    if (!currentAccIdCard.matches("^\\d{17}[\\dXx]$")){ // Corrected regex: \\d for digit
+                        request.setAttribute("errorMessage", "随行人员 " + (i+1) + " 身份证号格式不正确 (应为18位).");
                         request.getRequestDispatcher("/mobile/makeAppointment.jsp").forward(request, response);
                         return;
                     }
@@ -155,14 +166,12 @@ public class MobileAppointmentServlet extends HttpServlet {
                     // person.setPersonId(UUID.randomUUID().toString()); // Corrected: use setAccompanyingPersonId
                     person.setAccompanyingPersonId(UUID.randomUUID().toString());
                     person.setAppointmentId(appointment.getAppointmentId());
-                    person.setName(accNames[i]); // Will be encrypted in DAO
-                    person.setIdCard(accIdCards[i]); // Will be encrypted in DAO
-                    person.setPhone(accPhones[i]); // Will be encrypted in DAO
+                    person.setName(currentAccName); // Use trimmed
+                    person.setIdCard(currentAccIdCard); // Use trimmed
+                    person.setPhone(currentAccPhone); // Use trimmed
                     accompanyingPersons.add(person);
-                } else if ( (accNames[i] != null && !accNames[i].trim().isEmpty()) || 
-                            (accIdCards[i] != null && !accIdCards[i].trim().isEmpty()) || 
-                            (accPhones[i] != null && !accPhones[i].trim().isEmpty()) ){
-                    // If any field for an accompanying person is filled, all main ones should be.
+                } else if (!currentAccName.isEmpty() || !currentAccIdCard.isEmpty() || !currentAccPhone.isEmpty()){
+                    // If any field for an accompanying person is filled (after trimming), all main ones should be.
                     request.setAttribute("errorMessage", "随行人员 " + (i+1) + " 信息不完整 (姓名, 身份证, 电话都必填).");
                     request.getRequestDispatcher("/mobile/makeAppointment.jsp").forward(request, response);
                     return;

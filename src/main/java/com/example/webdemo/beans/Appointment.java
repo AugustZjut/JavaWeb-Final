@@ -6,7 +6,7 @@ import java.util.List; // Added for accompanyingPersons
 public class Appointment {
     private String appointmentId; // Changed to String for UUID
     private String campus;
-    private Timestamp appointmentTime;
+    private Timestamp entryDatetime; // Renamed from appointmentTime
     private String applicantOrganization; // Renamed from organization
     private String applicantName;
     private String applicantIdCard;
@@ -18,20 +18,20 @@ public class Appointment {
     private String contactPersonPhone; // Added
     private String visitReason;
     private String appointmentType; // "PUBLIC" or "OFFICIAL_VISIT"
-    private String approvalStatus; // "PENDING", "APPROVED", "REJECTED", "CANCELLED"
-    private Timestamp submissionTime; // Added
+    private String status; // Renamed from approvalStatus to match DB
+    private Timestamp applicationDate; // Renamed from submissionTime to match DB
     private Timestamp createdAt;
     private Timestamp updatedAt;
     private List<AccompanyingPerson> accompanyingPersons; // Added
 
     // Enum for Campus
     public enum Campus {
-        CAMPUS_A, CAMPUS_B, CAMPUS_C // Example values
+        ZHAOHUI_CAMPUS, PINGFENG_CAMPUS, MOGANSHAN_CAMPUS // Updated to actual campus values
     }
 
     // Enum for AppointmentType
     public enum AppointmentType {
-        PUBLIC, OFFICIAL_VISIT
+        PUBLIC_ACCESS, OFFICIAL_VISIT // Modified from PUBLIC to PUBLIC_ACCESS
     }
 
     // Enum for ApprovalStatus
@@ -67,12 +67,12 @@ public class Appointment {
         this.campus = campus;
     }
 
-    public Timestamp getAppointmentTime() {
-        return appointmentTime;
+    public Timestamp getEntryDatetime() { // Renamed from getAppointmentTime
+        return entryDatetime;
     }
 
-    public void setAppointmentTime(Timestamp appointmentTime) {
-        this.appointmentTime = appointmentTime;
+    public void setEntryDatetime(Timestamp entryDatetime) { // Renamed from setAppointmentTime
+        this.entryDatetime = entryDatetime;
     }
 
     public String getApplicantOrganization() {
@@ -163,20 +163,20 @@ public class Appointment {
         this.appointmentType = appointmentType;
     }
 
-    public String getApprovalStatus() {
-        return approvalStatus;
+    public String getStatus() {
+        return status;
     }
 
-    public void setApprovalStatus(String approvalStatus) {
-        this.approvalStatus = approvalStatus;
+    public void setStatus(String status) {
+        this.status = status;
     }
 
-    public Timestamp getSubmissionTime() {
-        return submissionTime;
+    public Timestamp getApplicationDate() {
+        return applicationDate;
     }
 
-    public void setSubmissionTime(Timestamp submissionTime) {
-        this.submissionTime = submissionTime;
+    public void setApplicationDate(Timestamp applicationDate) {
+        this.applicationDate = applicationDate;
     }
 
     public Timestamp getCreatedAt() {
@@ -215,11 +215,6 @@ public class Appointment {
     }
 
     // Convenience getter for DAO layer
-    public String getStatus() {
-        return approvalStatus;
-    }
-    
-    // Convenience getter for DAO layer
     public String getContactPersonName() {
         return visitContactPerson;
     }
@@ -230,7 +225,7 @@ public class Appointment {
         return "Appointment{" +
                 "appointmentId='" + (appointmentId != null ? appointmentId.replace("'", "\\'") : null) + '\'' +
                 ", campus='" + (campus != null ? campus.replace("'", "\\'") : null) + '\'' +
-                ", appointmentTime=" + appointmentTime +
+                ", entryDatetime=" + entryDatetime +
                 ", applicantOrganization='" + (applicantOrganization != null ? applicantOrganization.replace("'", "\\'") : null) + '\'' +
                 ", applicantName='" + (applicantName != null ? applicantName.replace("'", "\\'") : null) + '\'' +
                 ", applicantIdCard='" + (applicantIdCard != null ? applicantIdCard.replace("'", "\\'") : null) + '\'' +
@@ -242,8 +237,8 @@ public class Appointment {
                 ", contactPersonPhone='" + (contactPersonPhone != null ? contactPersonPhone.replace("'", "\\'") : null) + '\'' +
                 ", visitReason='" + (visitReason != null ? visitReason.replace("'", "\\'") : null) + '\'' +
                 ", appointmentType='" + (appointmentType != null ? appointmentType.replace("'", "\\'") : null) + '\'' +
-                ", approvalStatus='" + (approvalStatus != null ? approvalStatus.replace("'", "\\'") : null) + '\'' +
-                ", submissionTime=" + submissionTime +
+                ", status='" + (status != null ? status.replace("'", "\\'") : null) + '\'' +
+                ", applicationDate=" + applicationDate +
                 ", createdAt=" + createdAt +
                 ", updatedAt=" + updatedAt +
                 ", accompanyingPersons=" + (accompanyingPersons != null ? accompanyingPersons.toString().replace("'", "\\'") : null) +

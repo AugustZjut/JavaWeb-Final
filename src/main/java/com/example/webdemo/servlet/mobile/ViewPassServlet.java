@@ -7,7 +7,6 @@ import com.example.webdemo.util.QRCodeUtils;
 import com.example.webdemo.util.DBUtils; // For potential key loading
 
 import jakarta.servlet.ServletException;
-import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -17,7 +16,6 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Properties;
 
-@WebServlet("/mobile/viewPass")
 public class ViewPassServlet extends HttpServlet {
     private static final long serialVersionUID = 1L;
     private AppointmentDAO appointmentDAO;
@@ -63,11 +61,11 @@ public class ViewPassServlet extends HttpServlet {
                 request.setAttribute("generationTime", generationTime);
 
                 // Determine pass validity (example logic, adjust as needed)
-                boolean isValid = Appointment.ApprovalStatus.APPROVED.name().equalsIgnoreCase(appointment.getApprovalStatus()) ||
-                                  (Appointment.AppointmentType.PUBLIC.name().equalsIgnoreCase(appointment.getAppointmentType()) && 
-                                   !Appointment.ApprovalStatus.CANCELLED.name().equalsIgnoreCase(appointment.getApprovalStatus()) &&
-                                   !Appointment.ApprovalStatus.REJECTED.name().equalsIgnoreCase(appointment.getApprovalStatus()) && // Also check for REJECTED for public
-                                   Appointment.ApprovalStatus.AUTO_APPROVED.name().equalsIgnoreCase(appointment.getApprovalStatus()) // Explicitly check for AUTO_APPROVED
+                boolean isValid = Appointment.ApprovalStatus.APPROVED.name().equalsIgnoreCase(appointment.getStatus()) ||
+                                  (Appointment.AppointmentType.PUBLIC_ACCESS.name().equalsIgnoreCase(appointment.getAppointmentType()) && // Changed from PUBLIC to PUBLIC_ACCESS
+                                   !Appointment.ApprovalStatus.CANCELLED.name().equalsIgnoreCase(appointment.getStatus()) &&
+                                   !Appointment.ApprovalStatus.REJECTED.name().equalsIgnoreCase(appointment.getStatus()) && // Also check for REJECTED for public
+                                   Appointment.ApprovalStatus.AUTO_APPROVED.name().equalsIgnoreCase(appointment.getStatus()) // Explicitly check for AUTO_APPROVED
                                    );
                 // Potentially add time-based validity check here
                 // e.g., if appointment.getAppointmentTime() is in the past or too far in the future

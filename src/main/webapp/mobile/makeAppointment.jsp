@@ -33,29 +33,49 @@
             }
         }
 
-        var accompanyingPersonCount = 0;
+        var nextPersonId = 1; // Used to generate unique IDs for divs and their elements
+
         function addAccompanyingPerson() {
-            accompanyingPersonCount++;
             var container = document.getElementById("accompanyingPersonsContainer");
+            var currentPersonDivs = container.getElementsByClassName("accompanying-person");
+            var displayOrder = currentPersonDivs.length + 1;
+
             var div = document.createElement("div");
             div.className = "accompanying-person";
-            div.id = "accompanyingPerson_" + accompanyingPersonCount;
-            div.innerHTML = '<h4>随行人员 ' + accompanyingPersonCount + ' <button type="button" onclick="removeAccompanyingPerson(\'person_' + accompanyingPersonCount + '\')">移除</button></h4>' +
-                '<label for="accName_' + accompanyingPersonCount + '">姓名:</label>' +
-                '<input type="text" id="accName_' + accompanyingPersonCount + '" name="accName[]">' +
-                '<label for="accIdCard_' + accompanyingPersonCount + '">身份证号:</label>' +
-                '<input type="text" id="accIdCard_' + accompanyingPersonCount + '" name="accIdCard[]" maxlength="18">' +
-                '<label for="accPhone_' + accompanyingPersonCount + '">联系电话:</label>' +
-                '<input type="tel" id="accPhone_' + accompanyingPersonCount + '" name="accPhone[]">';
+            div.id = "accompanyingPerson_" + nextPersonId; // Unique ID for the div
+
+            // Note: The remove button now calls removeAccompanyingPerson with the unique nextPersonId
+            div.innerHTML = '<h4>随行人员 ' + displayOrder + ' <button type="button" onclick="removeAccompanyingPerson(' + nextPersonId + ')">移除</button></h4>' +
+                '<label for="accName_' + nextPersonId + '">姓名:</label>' +
+                '<input type="text" id="accName_' + nextPersonId + '" name="accName[]">' +
+                '<label for="accIdCard_' + nextPersonId + '">身份证号:</label>' +
+                '<input type="text" id="accIdCard_' + nextPersonId + '" name="accIdCard[]" maxlength="18">' +
+                '<label for="accPhone_' + nextPersonId + '">联系电话:</label>' +
+                '<input type="tel" id="accPhone_' + nextPersonId + '" name="accPhone[]">';
+            
             container.appendChild(div);
+            nextPersonId++; // Increment for the next person
         }
 
-        function removeAccompanyingPerson(personId) {
-             var personDiv = document.getElementById("accompanyingPerson_" + personId);
+        function removeAccompanyingPerson(personIdToRemove) {
+             var personDiv = document.getElementById("accompanyingPerson_" + personIdToRemove);
              if (personDiv) {
                  personDiv.remove();
-                 // Optional: re-number if necessary, or handle gaps server-side
+                 updateAccompanyingPersonNumbers(); // Update numbers after removal
              }
+        }
+
+        function updateAccompanyingPersonNumbers() {
+            var container = document.getElementById("accompanyingPersonsContainer");
+            var personDivs = container.getElementsByClassName("accompanying-person");
+            for (var i = 0; i < personDivs.length; i++) {
+                var h4 = personDivs[i].getElementsByTagName("h4")[0];
+                if (h4) {
+                    // Keep the existing button, only update the text part
+                    var buttonHTML = h4.getElementsByTagName("button")[0].outerHTML;
+                    h4.innerHTML = "随行人员 " + (i + 1) + " " + buttonHTML;
+                }
+            }
         }
 
         // Ensure datetime-local is polyfilled or handled for browsers that don't support it well
@@ -93,10 +113,9 @@
 
             <label for="campus">到访校区:</label>
             <select id="campus" name="campus" required>
-                <option value="MAIN_CAMPUS">主校区</option>
-                <option value="NORTH_CAMPUS">北校区</option>
-                <option value="SOUTH_CAMPUS">南校区</option>
-                <option value="EAST_CAMPUS">东校区</option>
+                <option value="ZHAOHUI_CAMPUS">朝晖校区</option>
+                <option value="PINGFENG_CAMPUS">屏峰校区</option>
+                <option value="MOGANSHAN_CAMPUS">莫干山校区</option>
             </select>
 
             <label for="appointmentTime">预约入校时间:</label>

@@ -56,9 +56,9 @@ public class AppointmentDAO {
 
     // Updated createAppointment to take a single Appointment object which includes accompanying persons
     public boolean createAppointment(Appointment appointment) throws SQLException {
-        String sqlAppointment = "INSERT INTO appointments (appointment_id, campus, appointment_time, applicant_organization, " +
+        String sqlAppointment = "INSERT INTO appointments (appointment_id, campus, entry_datetime, applicant_organization, " +
                 "applicant_name, applicant_id_card, applicant_phone, transport_mode, license_plate, " +
-                "visit_department, contact_person_name, contact_person_phone, visit_reason, appointment_type, approval_status, submission_time, created_at, updated_at) " +
+                "official_visit_department_id, official_visit_contact_person, contact_person_phone, visit_reason, appointment_type, status, application_date, created_at, updated_at) " + // Corrected column names
                 "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())";
         String sqlAccompanyingPerson = "INSERT INTO accompanying_persons (person_id, appointment_id, name, id_card, phone) VALUES (?, ?, ?, ?, ?)";
 
@@ -73,7 +73,7 @@ public class AppointmentDAO {
             pstmtAppointment = conn.prepareStatement(sqlAppointment);
             pstmtAppointment.setString(1, appointment.getAppointmentId()); // Use UUID from servlet
             pstmtAppointment.setString(2, appointment.getCampus()); // Campus is already a String in bean
-            pstmtAppointment.setTimestamp(3, appointment.getAppointmentTime());
+            pstmtAppointment.setTimestamp(3, appointment.getEntryDatetime()); // Renamed from getAppointmentTime
             pstmtAppointment.setString(4, appointment.getApplicantOrganization());
 
             // Encrypt PII data before storing
@@ -85,20 +85,43 @@ public class AppointmentDAO {
             pstmtAppointment.setString(9, appointment.getLicensePlate());
 
             if (Appointment.AppointmentType.OFFICIAL_VISIT.name().equals(appointment.getAppointmentType())) { // Compare string with enum name
-                pstmtAppointment.setString(10, appointment.getVisitDepartment());
+                // pstmtAppointment.setString(10, appointment.getVisitDepartment()); // Old: direct department name
+                // For official_visit_department_id, you'd typically get the ID based on the department name/code.
+                // This might involve another DAO call or passing the ID from the servlet if it's already resolved.
+                // For now, if getVisitDepartment() stores the ID as a string, it can be parsed.
+                // If it stores the name, you need a lookup. Assuming it might be an ID for now or needs to be handled in servlet.
+                // If visitDepartment is a name, you'd do: int deptId = departmentDAO.getDepartmentIdByName(appointment.getVisitDepartment());
+                // pstmtAppointment.setInt(10, deptId);
+                // For simplicity, if getVisitDepartment() is expected to return a string that can be parsed to an INT (the ID)
+                // This is a placeholder - robust error handling and type conversion needed here.
+                // It's better if the servlet resolves the department name to an ID before calling createAppointment.
+                // Assuming getVisitDepartment() now returns the department *ID* as a String due to form submission, or it's null.
+                if (appointment.getVisitDepartment() != null && !appointment.getVisitDepartment().isEmpty()) {
+                    try {
+                        pstmtAppointment.setInt(10, Integer.parseInt(appointment.getVisitDepartment()));
+                    } catch (NumberFormatException e) {
+                        // Handle error: department ID is not a valid integer. Maybe set to null or throw error.
+                        System.err.println("Warning: Could not parse visitDepartment to Integer: " + appointment.getVisitDepartment());
+                        pstmtAppointment.setNull(10, Types.INTEGER); 
+                    }
+                } else {
+                    pstmtAppointment.setNull(10, Types.INTEGER);
+                }
                 pstmtAppointment.setString(11, CryptoUtils.encryptSM2(appointment.getVisitContactPerson(), sm2PublicKeyHex));
                 pstmtAppointment.setString(12, CryptoUtils.encryptSM4(appointment.getContactPersonPhone(), sm4KeyHex)); // Example
                 pstmtAppointment.setString(13, appointment.getVisitReason());
             } else {
-                pstmtAppointment.setNull(10, Types.VARCHAR);
+                pstmtAppointment.setNull(10, Types.INTEGER);
                 pstmtAppointment.setNull(11, Types.VARCHAR);
                 pstmtAppointment.setNull(12, Types.VARCHAR);
                 pstmtAppointment.setNull(13, Types.VARCHAR);
             }
 
             pstmtAppointment.setString(14, appointment.getAppointmentType()); // appointmentType is already a String in bean
-            pstmtAppointment.setString(15, appointment.getApprovalStatus()); // approvalStatus is already a String in bean
-            pstmtAppointment.setTimestamp(16, appointment.getSubmissionTime());
+            // pstmtAppointment.setString(15, appointment.getApprovalStatus()); // approvalStatus is already a String in bean
+            pstmtAppointment.setString(15, appointment.getStatus()); // Corrected to use getStatus()
+            // pstmtAppointment.setTimestamp(16, appointment.getSubmissionTime());
+            pstmtAppointment.setTimestamp(16, appointment.getApplicationDate()); // Corrected to use getApplicationDate()
 
 
             int affectedRows = pstmtAppointment.executeUpdate();
@@ -185,7 +208,7 @@ public class AppointmentDAO {
             throw new SQLException("Failed to encrypt ID card for search.", e);
         }
 
-        String sql = "SELECT * FROM appointments WHERE applicant_id_card = ? ORDER BY appointment_time DESC";
+        String sql = "SELECT * FROM appointments WHERE applicant_id_card = ? ORDER BY entry_datetime DESC"; // Renamed appointment_time to entry_datetime
 
         try (Connection conn = dataSource.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -214,7 +237,8 @@ public class AppointmentDAO {
     // This method will decrypt PII using the DAO's internally managed keys.
     public List<Appointment> getAppointmentsByType(String appointmentType) throws SQLException {
         List<Appointment> appointments = new ArrayList<>();
-        String sql = "SELECT * FROM appointments WHERE appointment_type = ? ORDER BY submission_time DESC";
+        // String sql = "SELECT * FROM appointments WHERE appointment_type = ? ORDER BY submission_time DESC";
+        String sql = "SELECT * FROM appointments WHERE appointment_type = ? ORDER BY application_date DESC"; // Corrected to application_date
 
         try (Connection conn = dataSource.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -236,6 +260,7 @@ public class AppointmentDAO {
 
     public Appointment getAppointmentById(String appointmentId) throws SQLException {
         String sql = "SELECT * FROM appointments WHERE appointment_id = ?";
+        Appointment appointment = null;
         try (Connection conn = dataSource.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, appointmentId);
@@ -254,7 +279,7 @@ public class AppointmentDAO {
         return null;
     }
 
-    public List<AccompanyingPerson> getAccompanyingPersonsByAppointmentId(String appointmentId) throws SQLException {
+    public List<AccompanyingPerson> getAccompanyingPersonsByAppointmentId(String appointmentId, boolean decryptPII) throws SQLException { // Added decryptPII parameter
         List<AccompanyingPerson> persons = new ArrayList<>();
         String sql = "SELECT * FROM accompanying_persons WHERE appointment_id = ?";
         try (Connection conn = dataSource.getConnection();
@@ -265,16 +290,23 @@ public class AppointmentDAO {
                     AccompanyingPerson person = new AccompanyingPerson();
                     person.setAccompanyingPersonId(rs.getString("person_id")); // Use String ID
                     person.setAppointmentId(rs.getString("appointment_id")); // Use String ID
-                    // Decrypt PII data
-                    try {
-                        person.setName(CryptoUtils.decryptSM2(rs.getString("name"), sm2PrivateKeyHex));
-                        person.setIdCard(CryptoUtils.decryptSM2(rs.getString("id_card"), sm2PrivateKeyHex));
-                        person.setPhone(CryptoUtils.decryptSM4(rs.getString("phone"), sm4KeyHex));
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                        // Handle decryption error, maybe set fields to "Error decrypting" or skip person
-                        // For now, rethrow as part of a larger failure
-                        throw new SQLException("Failed to decrypt accompanying person data for appointment ID: " + appointmentId, e);
+                    // Decrypt PII data based on the flag
+                    if (decryptPII) {
+                        try {
+                            person.setName(CryptoUtils.decryptSM2(rs.getString("name"), sm2PrivateKeyHex));
+                            person.setIdCard(CryptoUtils.decryptSM2(rs.getString("id_card"), sm2PrivateKeyHex));
+                            person.setPhone(CryptoUtils.decryptSM4(rs.getString("phone"), sm4KeyHex));
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                            // Handle decryption error, maybe set fields to "Error decrypting" or skip person
+                            // For now, rethrow as part of a larger failure
+                            throw new SQLException("Failed to decrypt accompanying person data for appointment ID: " + appointmentId, e);
+                        }
+                    } else {
+                        // Store raw encrypted data if not decrypting
+                        person.setName(rs.getString("name"));
+                        person.setIdCard(rs.getString("id_card"));
+                        person.setPhone(rs.getString("phone"));
                     }
                     persons.add(person);
                 }
@@ -287,7 +319,8 @@ public class AppointmentDAO {
     }
 
     public boolean updateAppointmentStatus(String appointmentId, Appointment.ApprovalStatus status) throws SQLException { 
-        String sql = "UPDATE appointments SET approval_status = ?, updated_at = NOW() WHERE appointment_id = ?";
+        // String sql = "UPDATE appointments SET approval_status = ?, updated_at = NOW() WHERE appointment_id = ?";
+        String sql = "UPDATE appointments SET status = ?, updated_at = NOW() WHERE appointment_id = ?"; // Corrected to status column
         try (Connection conn = dataSource.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, status.name()); // Use enum's name() method for string representation
@@ -304,7 +337,7 @@ public class AppointmentDAO {
         Appointment app = new Appointment();
         app.setAppointmentId(rs.getString("appointment_id"));
         app.setCampus(rs.getString("campus")); // Directly set String
-        app.setAppointmentTime(rs.getTimestamp("appointment_time"));
+        app.setEntryDatetime(rs.getTimestamp("entry_datetime")); // Renamed from setAppointmentTime
         app.setApplicantOrganization(rs.getString("applicant_organization")); // Changed from setOrganization
 
         if (decryptPII) {
@@ -329,14 +362,28 @@ public class AppointmentDAO {
 
         app.setTransportMode(rs.getString("transport_mode")); // Directly set String
         app.setLicensePlate(rs.getString("license_plate"));
-        app.setVisitDepartment(rs.getString("visit_department"));
+        // app.setVisitDepartment(rs.getString("visit_department")); // Old column name
+        // Assuming you want to store the department ID (integer) in the bean, or fetch department name by ID
+        // If your bean's setVisitDepartment expects a String (name), you'd do a lookup here.
+        // If it expects the ID (as string or int), you can get it directly.
+        // For now, let's assume we retrieve the ID and the bean setter can handle it as a string, or it's handled elsewhere.
+        app.setVisitDepartment(rs.getString("official_visit_department_id")); // Corrected column name, might be null or an ID
         // Contact person name/phone already handled with decryption flag
         app.setVisitReason(rs.getString("visit_reason"));
         app.setAppointmentType(rs.getString("appointment_type")); // Directly set String
-        app.setApprovalStatus(rs.getString("approval_status")); // Directly set String
-        app.setSubmissionTime(rs.getTimestamp("submission_time"));
+        // app.setApprovalStatus(rs.getString("approval_status")); // Directly set String
+        app.setStatus(rs.getString("status")); // Corrected to use status column and setStatus
+        // app.setSubmissionTime(rs.getTimestamp("submission_time"));
+        app.setApplicationDate(rs.getTimestamp("application_date")); // Corrected to use application_date column and setApplicationDate
         app.setCreatedAt(rs.getTimestamp("created_at"));
         app.setUpdatedAt(rs.getTimestamp("updated_at"));
+
+        // Fetch and set accompanying persons
+        // This should be done in a separate query or a JOIN if preferred, to avoid N+1 problems if calling this for multiple appointments.
+        // For a single appointment, a separate query is fine.
+        app.setAccompanyingPersons(getAccompanyingPersonsByAppointmentId(app.getAppointmentId(), decryptPII));
+
+
         return app;
     }
 }

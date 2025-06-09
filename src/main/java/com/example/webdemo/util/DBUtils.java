@@ -10,41 +10,62 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Properties;
+import java.util.logging.Level; // Import Level
+import java.util.logging.Logger; // Import Logger
 
 public class DBUtils {
 
     private static HikariDataSource dataSource;
+    private static final Logger LOGGER = Logger.getLogger(DBUtils.class.getName()); // Create a logger instance
 
     static {
         Properties props = new Properties();
         try (InputStream input = DBUtils.class.getClassLoader().getResourceAsStream("db.properties")) {
             if (input == null) {
-                System.err.println("Sorry, unable to find db.properties");
-                // Consider throwing a runtime exception or exiting if db.properties is critical
+                LOGGER.log(Level.SEVERE, "Sorry, unable to find db.properties. Will use default connection properties.");
             } else {
                 props.load(input);
+                LOGGER.log(Level.INFO, "db.properties loaded successfully.");
             }
         } catch (IOException ex) {
-            // Log error
-            System.err.println("IOException while loading db.properties: " + ex.getMessage());
+            LOGGER.log(Level.SEVERE, "IOException while loading db.properties: " + ex.getMessage(), ex);
         }
 
         HikariConfig config = new HikariConfig();
-        config.setJdbcUrl(props.getProperty("db.url", "jdbc:postgresql://localhost:5432/campus_access_db")); // Default if not in props
-        config.setUsername(props.getProperty("db.username", "postgres"));
-        config.setPassword(props.getProperty("db.password", "password"));
+        String dbUrl = props.getProperty("db.url", "jdbc:postgresql://localhost:5432/campus_access_db");
+        String dbUsername = props.getProperty("db.username", "postgres");
+        // DO NOT log password in production. For debugging only, and remove immediately.
+        // String dbPassword = props.getProperty("db.password", "password"); 
+
+        LOGGER.log(Level.INFO, "Attempting to configure HikariCP with the following properties:");
+        LOGGER.log(Level.INFO, "JDBC URL: " + dbUrl);
+        LOGGER.log(Level.INFO, "Username: " + dbUsername);
+        // LOGGER.log(Level.INFO, "Password: " + dbPassword); // Be careful with logging passwords
+
+        config.setJdbcUrl(dbUrl);
+        config.setUsername(dbUsername);
+        config.setPassword(props.getProperty("db.password", "password")); // Get password directly here
         config.setDriverClassName(props.getProperty("db.driver", "org.postgresql.Driver"));
         config.addDataSourceProperty("cachePrepStmts", props.getProperty("db.cachePrepStmts", "true"));
         config.addDataSourceProperty("prepStmtCacheSize", props.getProperty("db.prepStmtCacheSize", "250"));
         config.addDataSourceProperty("prepStmtCacheSqlLimit", props.getProperty("db.prepStmtCacheSqlLimit", "2048"));
         config.setMaximumPoolSize(Integer.parseInt(props.getProperty("db.maxPoolSize", "10")));
 
-        dataSource = new HikariDataSource(config);
+        try {
+            LOGGER.log(Level.INFO, "Initializing HikariDataSource...");
+            dataSource = new HikariDataSource(config);
+            LOGGER.log(Level.INFO, "HikariDataSource initialized successfully.");
+        } catch (Exception e) {
+            LOGGER.log(Level.SEVERE, "Failed to initialize HikariDataSource: " + e.getMessage(), e);
+            // This exception will propagate and cause NoClassDefFoundError for DBUtils
+            throw e; // Re-throw the exception to ensure the static initializer fails as expected
+        }
     }
 
     public static Connection getConnection() throws SQLException {
         if (dataSource == null) {
-            throw new SQLException("HikariDataSource not initialized. Check db.properties and static block.");
+            LOGGER.log(Level.SEVERE, "HikariDataSource not initialized. Check db.properties and static block for errors during initialization.");
+            throw new SQLException("HikariDataSource not initialized. Check db.properties and static block for errors during initialization.");
         }
         return dataSource.getConnection();
     }

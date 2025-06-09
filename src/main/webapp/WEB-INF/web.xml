@@ -34,14 +34,14 @@
         <url-pattern>/admin/departments</url-pattern>
     </servlet-mapping>
 
-    <!-- <servlet>
+    <servlet>
         <servlet-name>MobileAppointmentServlet</servlet-name>
         <servlet-class>com.example.webdemo.servlet.mobile.MobileAppointmentServlet</servlet-class>
     </servlet>
     <servlet-mapping>
         <servlet-name>MobileAppointmentServlet</servlet-name>
         <url-pattern>/mobile/makeAppointment</url-pattern>
-    </servlet-mapping> -->
+    </servlet-mapping>
 
     <!-- <servlet>
         <servlet-name>MyAppointmentServlet</servlet-name>
