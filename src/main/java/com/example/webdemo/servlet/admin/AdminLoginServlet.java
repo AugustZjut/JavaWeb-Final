@@ -6,6 +6,8 @@ import com.example.webdemo.dao.AuditLogDAO;
 import com.example.webdemo.dao.UserDAO;
 import com.example.webdemo.util.CryptoUtils;
 import com.example.webdemo.util.DBUtils; // Added import for DBUtils
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
@@ -22,6 +24,7 @@ import java.util.Date;
 @WebServlet("/adminLoginServlet")
 public class AdminLoginServlet extends HttpServlet {
     private static final long serialVersionUID = 1L;
+    private static final Logger logger = LoggerFactory.getLogger(AdminLoginServlet.class);
     private UserDAO userDAO;
     private AuditLogDAO auditLogDAO;
     private static final int MAX_LOGIN_ATTEMPTS = 5;
@@ -41,13 +44,20 @@ public class AdminLoginServlet extends HttpServlet {
         String password = request.getParameter("password");
         HttpSession session = request.getSession();
 
+        // 记录登录尝试到日志（不打印敏感信息）
+        logger.debug("Login attempt received for username: {}", loginName);
+        
+        logger.info("Attempting login for user: {}", loginName);
+
         User user = null;
 
         try {
             // Changed from getUserByLoginName to findByUsername
             user = userDAO.findByUsername(loginName); 
-
+            
             if (user != null) {
+                
+                logger.debug("User found: {}", user.getUsername());
                 // Changed from isLocked() to a combination of getLockoutTime() and System.currentTimeMillis()
                 if (user.getLockoutTime() != null && user.getLockoutTime().getTime() > System.currentTimeMillis()) {
                     long lockoutEndTime = user.getLockoutTime().getTime(); // This is already the end time
@@ -60,11 +70,13 @@ public class AdminLoginServlet extends HttpServlet {
                     // And the field should probably be named lastLockoutAttemptTime or similar.
                     // Let's stick to user.getLockoutTime() as the expiry for now.
 
+                    logger.warn("User account is locked: {}. Lockout expires at: {}", loginName, new Timestamp(lockoutEndTime));
                     session.setAttribute("loginError", "账户已锁定，请稍后再试。 当前锁定截止时间: " + new Timestamp(lockoutEndTime));
                     response.sendRedirect("admin/adminLogin.jsp");
                     return;
                 } else if (user.getLockoutTime() != null && user.getLockoutTime().getTime() <= System.currentTimeMillis()) {
                     // Lock has expired, unlock the user
+                    logger.info("User lock has expired, unlocking account for: {}", loginName);
                     userDAO.unlockUserAccount(user.getUsername()); // Changed from unlockUser(user.getUserId())
                     user.setLockoutTime(null); // Update local object
                     user.setFailedLoginAttempts(0); // Reset attempts
@@ -73,8 +85,14 @@ public class AdminLoginServlet extends HttpServlet {
 
                 // Changed from sm3Hash to generateSM3Hash
                 String hashedPassword = CryptoUtils.generateSM3Hash(password); 
+                logger.debug("Password hash generated for input. Comparing with stored hash.");
+                
+                // 使用日志记录密码验证尝试（不打印实际哈希值）
+                logger.debug("Comparing password hash for user: {}", user.getUsername());
+
                 if (user.getPasswordHash().equals(hashedPassword)) {
                     // Login successful
+                    logger.info("Password match for user: {}. Login successful.", loginName);
                     userDAO.resetFailedLoginAttempts(user.getUsername()); // Changed from getUserId()
                     session.setAttribute("adminUser", user);
 
@@ -83,55 +101,48 @@ public class AdminLoginServlet extends HttpServlet {
                     log.setUserId(user.getUserId()); 
                     log.setUsername(user.getUsername()); // Changed from getLoginName()
                     log.setActionType("ADMIN_LOGIN_SUCCESS");
-                    log.setActionDetails("Admin user " + user.getUsername() + " logged in successfully."); // Changed from getLoginName()
-                    log.setActionTime(new Timestamp(new Date().getTime())); // Changed from setTimestamp
-                    log.setClientIp(request.getRemoteAddr()); // Changed from setIpAddress
+                    // 修复方法名: setActionDetails -> setDetails
+                    log.setDetails("Admin user " + user.getUsername() + " logged in successfully.");
+                    // 修复方法名: setActionTime -> setLogTimestamp
+                    log.setLogTimestamp(new Timestamp(new Date().getTime()));
+                    // 修复方法名: setClientIp -> setIpAddress
+                    log.setIpAddress(request.getRemoteAddr());
                     auditLogDAO.createLog(log); 
+                    logger.debug("Audit log created for successful login of user: {}", loginName);
 
-                    response.sendRedirect("admin/dashboard.jsp");
+                    // 修改为使用上下文路径的绝对路径
+                    response.sendRedirect(request.getContextPath() + "/admin/dashboard.jsp");
                 } else {
                     // Login failed
+                    logger.warn("Password mismatch for user: {}", loginName);
                     int attempts = userDAO.incrementFailedLoginAttempts(user.getUsername()); // Changed from getUserId()
+                    logger.debug("Failed login attempts for user {}: {}", loginName, attempts);
                     user.setFailedLoginAttempts(attempts); // update local user object with new count
-                    // user.setLastFailedLoginTime(new Timestamp(System.currentTimeMillis())); // User bean does not have this field, UserDAO handles attempt times
-                    // userDAO.updateUserLockout(user); // incrementFailedLoginAttempts and lockUserAccount handle this
 
                     if (attempts >= MAX_LOGIN_ATTEMPTS) {
-                        // Lock the account by setting lockout_time to current time + duration
-                        Timestamp lockoutExpiryTime = new Timestamp(System.currentTimeMillis() + LOCKOUT_DURATION);
-                        userDAO.lockUserAccount(user.getUsername(), lockoutExpiryTime); // Changed from lockUser(user.getUserId())
-                        user.setLockoutTime(lockoutExpiryTime); // Update local user object
+                        logger.warn("User account for {} has been locked due to too many failed login attempts.", loginName);
+                        long lockoutExpiryTime = System.currentTimeMillis() + LOCKOUT_DURATION;
+                        userDAO.lockUserAccount(user.getUsername(), new Timestamp(lockoutExpiryTime));
                         session.setAttribute("loginError", "密码错误次数过多，账户已锁定。");
                     } else {
                         session.setAttribute("loginError", "用户名或密码错误。");
                     }
-
-                    // Audit log for failed attempt
-                    AuditLog log = new AuditLog();
-                    log.setUserId(user.getUserId()); 
-                    log.setUsername(user.getUsername()); // Changed from getLoginName()
-                    log.setActionType("ADMIN_LOGIN_FAILURE");
-                    log.setActionDetails("Admin user " + user.getUsername() + " failed login attempt."); // Changed from getLoginName()
-                    log.setActionTime(new Timestamp(new Date().getTime())); // Changed from setTimestamp
-                    log.setClientIp(request.getRemoteAddr()); // Changed from setIpAddress
-                    auditLogDAO.createLog(log); 
-
                     response.sendRedirect("admin/adminLogin.jsp");
                 }
             } else {
-                // User not found
+                logger.warn("Login failed. User not found: {}", loginName);
                 session.setAttribute("loginError", "用户名或密码错误。");
                 response.sendRedirect("admin/adminLogin.jsp");
             }
         } catch (SQLException e) {
-            // Log and handle database errors
-            e.printStackTrace(); // Proper logging should be used
-            session.setAttribute("loginError", "数据库错误，请稍后再试。");
+            logger.error("Database error during login for user: " + loginName, e);
+            e.printStackTrace(); // 添加堆栈跟踪以便在控制台上查看
+            session.setAttribute("loginError", "数据库错误，请联系管理员。");
             response.sendRedirect("admin/adminLogin.jsp");
         } catch (Exception e) {
-            // Catch other potential exceptions (e.g., from CryptoUtils)
-            e.printStackTrace(); // Proper logging
-            session.setAttribute("loginError", "发生内部错误，请联系管理员。");
+            logger.error("An unexpected error occurred during login for user: " + loginName, e);
+            e.printStackTrace(); // 添加堆栈跟踪以便在控制台上查看
+            session.setAttribute("loginError", "系统发生未知错误，请联系管理员。" + e.getMessage());
             response.sendRedirect("admin/adminLogin.jsp");
         }
     }

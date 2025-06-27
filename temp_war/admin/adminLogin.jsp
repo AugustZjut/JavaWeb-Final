@@ -61,19 +61,10 @@
         <h2>管理员登录</h2>
         <% 
             String errorMessage = (String) request.getAttribute("errorMessage");
-            String loginError = (String) session.getAttribute("loginError");
-            
             if (errorMessage != null && !errorMessage.isEmpty()) {
         %>
             <p class="error-message"><%= errorMessage %></p>
         <% 
-            }
-            if (loginError != null && !loginError.isEmpty()) {
-        %>
-            <p class="error-message"><%= loginError %></p>
-        <% 
-                // 显示后清除会话中的错误消息
-                session.removeAttribute("loginError");
             }
         %>
         <form action="<%= request.getContextPath() %>/adminLoginServlet" method="post">

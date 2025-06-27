@@ -4,7 +4,7 @@ import com.example.webdemo.beans.Appointment;
 import com.example.webdemo.dao.AppointmentDAO;
 import com.example.webdemo.util.DataMaskingUtils;
 import com.example.webdemo.util.QRCodeUtils;
-import com.example.webdemo.util.DBUtils; // For potential key loading
+import com.example.webdemo.util.DBUtils;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServlet;
@@ -14,7 +14,6 @@ import java.io.IOException;
 import java.sql.SQLException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
-import java.util.Properties;
 
 public class ViewPassServlet extends HttpServlet {
     private static final long serialVersionUID = 1L;
@@ -34,15 +33,13 @@ public class ViewPassServlet extends HttpServlet {
         }
 
         try {
+            // appointmentId保持为String类型
             Appointment appointment = appointmentDAO.getAppointmentById(appointmentId);
 
             if (appointment != null) {
                 // Mask PII
                 String maskedName = DataMaskingUtils.maskName(appointment.getApplicantName());
                 String maskedIdCard = DataMaskingUtils.maskIdCard(appointment.getApplicantIdCard());
-                // Phone is already encrypted, if needed for display, decrypt and mask
-                // String decryptedPhone = CryptoUtils.decryptSM4(appointment.getVisitorPhone(), sm4Key);
-                // String maskedPhone = DataMaskingUtils.maskPhone(decryptedPhone);
 
                 // Prepare QR code content
                 SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
@@ -56,20 +53,16 @@ public class ViewPassServlet extends HttpServlet {
                 request.setAttribute("appointment", appointment);
                 request.setAttribute("maskedName", maskedName);
                 request.setAttribute("maskedIdCard", maskedIdCard);
-                // request.setAttribute("maskedPhone", maskedPhone); // If displaying phone
                 request.setAttribute("qrCodeBase64", qrCodeBase64);
                 request.setAttribute("generationTime", generationTime);
 
-                // Determine pass validity (example logic, adjust as needed)
-                boolean isValid = Appointment.ApprovalStatus.APPROVED.name().equalsIgnoreCase(appointment.getStatus()) ||
-                                  (Appointment.AppointmentType.PUBLIC_ACCESS.name().equalsIgnoreCase(appointment.getAppointmentType()) && // Changed from PUBLIC to PUBLIC_ACCESS
-                                   !Appointment.ApprovalStatus.CANCELLED.name().equalsIgnoreCase(appointment.getStatus()) &&
-                                   !Appointment.ApprovalStatus.REJECTED.name().equalsIgnoreCase(appointment.getStatus()) && // Also check for REJECTED for public
-                                   Appointment.ApprovalStatus.AUTO_APPROVED.name().equalsIgnoreCase(appointment.getStatus()) // Explicitly check for AUTO_APPROVED
-                                   );
-                // Potentially add time-based validity check here
-                // e.g., if appointment.getAppointmentTime() is in the past or too far in the future
-
+                // 使用Status直接比较
+                boolean isValid = Appointment.Status.APPROVED.equals(appointment.getStatus()) ||
+                                 (Appointment.AppointmentType.PUBLIC.equals(appointment.getAppointmentType()) && 
+                                  !Appointment.Status.CANCELLED.equals(appointment.getStatus()) &&
+                                  !Appointment.Status.REJECTED.equals(appointment.getStatus()) && 
+                                  Appointment.Status.APPROVED.equals(appointment.getStatus()));
+                
                 request.setAttribute("isValidPass", isValid);
 
                 request.getRequestDispatcher("/mobile/viewPass.jsp").forward(request, response);

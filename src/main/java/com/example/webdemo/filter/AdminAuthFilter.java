@@ -11,35 +11,38 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class AdminAuthFilter implements Filter {
 
+    private static final Logger logger = LoggerFactory.getLogger(AdminAuthFilter.class);
     private Map<String, List<String>> rolePermissions; // Role -> List of allowed URL patterns
 
     @Override
     public void init(FilterConfig filterConfig) throws ServletException {
         rolePermissions = new HashMap<>();
-        // Define permissions for each role
-        // SchoolAdmin can access all admin/* paths
-        rolePermissions.put("SchoolAdmin", Arrays.asList("/admin/.*")); // Regex for all admin paths
+        // 定义每个角色的权限 - 改为数据库中的角色名称格式（全大写+下划线）
+        // SCHOOL_ADMIN 可以访问所有 admin/* 路径
+        rolePermissions.put("SCHOOL_ADMIN", Arrays.asList("/admin/.*")); // Regex for all admin paths
 
-        // DepartmentAdmin can access user management (view only), department (view only), and official/public appointments
-        rolePermissions.put("DepartmentAdmin", Arrays.asList(
-                "/admin/userList.jsp", "/admin/UserManagementServlet\\?action=list", // Corrected: Escaped '?' for regex
-                "/admin/departmentList.jsp", "/admin/DepartmentManagementServlet\\?action=list", // Corrected: Escaped '?' for regex
-                "/admin/publicAppointmentList.jsp", "/admin/PublicAppointmentServlet.*",
-                "/admin/officialAppointmentList.jsp", "/admin/OfficialAppointmentServlet.*",
+        // DEPARTMENT_ADMIN 可以访问用户管理（只读）、部门（只读）以及公务/公开预约管理
+        rolePermissions.put("DEPARTMENT_ADMIN", Arrays.asList(
+                "/admin/userList.jsp", "/admin/userManagement.*", 
+                "/admin/departmentList.jsp", "/admin/departmentManagement.*", 
+                "/admin/publicAppointmentList.jsp", "/admin/publicAppointmentManagement.*",
+                "/admin/officialAppointmentList.jsp", "/admin/officialAppointmentManagement.*",
                 "/admin/dashboard.jsp"
         ));
 
-        // AuditAdmin can access audit logs and dashboard
-        rolePermissions.put("AuditAdmin", Arrays.asList(
-                "/admin/auditLogList.jsp", "/admin/AuditLogServlet.*",
+        // AUDIT_ADMIN 可以访问审计日志和控制台
+        rolePermissions.put("AUDIT_ADMIN", Arrays.asList(
+                "/admin/auditLogList.jsp", "/admin/auditLog.*",
                 "/admin/dashboard.jsp"
         ));
         
-        // SystemAdmin can access everything (same as SchoolAdmin for simplicity here, can be more granular)
-        rolePermissions.put("SystemAdmin", Arrays.asList("/admin/.*"));
+        // SYSTEM_ADMIN 可以访问所有内容（与 SCHOOL_ADMIN 相同，可以更细化）
+        rolePermissions.put("SYSTEM_ADMIN", Arrays.asList("/admin/.*"));
     }
 
     @Override
@@ -49,30 +52,37 @@ public class AdminAuthFilter implements Filter {
         HttpServletResponse httpResponse = (HttpServletResponse) response;
         HttpSession session = httpRequest.getSession(false);
 
+        String contextPath = httpRequest.getContextPath();
         String requestURI = httpRequest.getRequestURI();
+        String pathWithinApp = requestURI.substring(contextPath.length());
         String queryString = httpRequest.getQueryString();
-        String fullPath = requestURI + (queryString == null ? "" : "?" + queryString);
+        String fullPath = pathWithinApp + (queryString == null ? "" : "?" + queryString);
 
+        logger.debug("处理请求: {}, 应用内路径: {}", requestURI, pathWithinApp);
 
-        // Allow access to login page and static resources
-        if (requestURI.endsWith("adminLogin.jsp") || requestURI.endsWith("AdminLoginServlet") || 
-            requestURI.startsWith(httpRequest.getContextPath() + "/css/") || 
-            requestURI.startsWith(httpRequest.getContextPath() + "/js/")) {
+        // 允许访问登录页面和静态资源
+        if (pathWithinApp.endsWith("/admin/adminLogin.jsp") || pathWithinApp.endsWith("/adminLoginServlet") || 
+            pathWithinApp.startsWith("/css/") || 
+            pathWithinApp.startsWith("/js/")) {
+            logger.debug("允许访问登录页面或静态资源: {}", pathWithinApp);
             chain.doFilter(request, response);
             return;
         }
 
         User adminUser = (session != null) ? (User) session.getAttribute("adminUser") : null;
-
+        
         if (adminUser == null) {
-            httpResponse.sendRedirect(httpRequest.getContextPath() + "/admin/adminLogin.jsp");
+            logger.warn("未登录用户尝试访问受保护资源: {}", pathWithinApp);
+            httpResponse.sendRedirect(contextPath + "/admin/adminLogin.jsp");
             return;
         }
 
         String userRole = adminUser.getRole();
+        logger.debug("用户: {}, 角色: {}, 尝试访问: {}", adminUser.getUsername(), userRole, pathWithinApp);
+        
         if (userRole == null) {
-            System.err.println("User role is null for user: " + adminUser.getUsername());
-            httpResponse.sendError(HttpServletResponse.SC_FORBIDDEN, "Access Denied: User role not defined.");
+            logger.error("用户角色为 null: {}", adminUser.getUsername());
+            httpResponse.sendError(HttpServletResponse.SC_FORBIDDEN, "访问被拒绝：用户角色未定义。");
             return;
         }
         
@@ -80,20 +90,22 @@ public class AdminAuthFilter implements Filter {
 
         if (allowedPaths != null) {
             for (String pattern : allowedPaths) {
-                if (fullPath.matches(httpRequest.getContextPath() + pattern)) {
+                logger.debug("检查路径 {} 是否匹配模式 {}", pathWithinApp, pattern);
+                if (pathWithinApp.matches(pattern)) {
+                    logger.debug("路径匹配成功，允许访问");
                     chain.doFilter(request, response);
                     return;
                 }
             }
         }
         
-        // If no pattern matched, deny access
-        System.out.println("Access Denied for role " + userRole + " to path " + fullPath);
-        httpResponse.sendError(HttpServletResponse.SC_FORBIDDEN, "Access Denied: You do not have permission to access this resource.");
+        // 如果没有匹配的模式，拒绝访问
+        logger.warn("访问被拒绝：角色 {} 无权访问路径 {}", userRole, pathWithinApp);
+        httpResponse.sendError(HttpServletResponse.SC_FORBIDDEN, "访问被拒绝：您没有权限访问此资源。");
     }
 
     @Override
     public void destroy() {
-        // Cleanup code, if any
+        // 清理代码，如果有的话
     }
 }

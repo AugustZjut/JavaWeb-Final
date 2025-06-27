@@ -6,8 +6,11 @@ import com.example.webdemo.dao.AuditLogDAO;
 import com.example.webdemo.beans.User;
 import com.example.webdemo.beans.AuditLog; // Added import
 import com.example.webdemo.util.DBUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import jakarta.servlet.ServletException;
+import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -17,8 +20,10 @@ import java.sql.SQLException;
 import java.util.Date;
 import java.util.List;
 
+@WebServlet("/admin/officialAppointmentManagement")
 public class OfficialAppointmentServlet extends HttpServlet {
     private static final long serialVersionUID = 1L;
+    private static final Logger logger = LoggerFactory.getLogger(OfficialAppointmentServlet.class);
     private AppointmentDAO appointmentDAO;
     private AuditLogDAO auditLogDAO;
 
@@ -30,6 +35,16 @@ public class OfficialAppointmentServlet extends HttpServlet {
     }
 
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+        // 验证用户是否登录
+        HttpSession session = request.getSession(false);
+        User adminUser = (session != null) ? (User) session.getAttribute("adminUser") : null;
+        
+        if (adminUser == null) {
+            logger.warn("未登录用户尝试访问公务预约管理");
+            response.sendRedirect(request.getContextPath() + "/admin/adminLogin.jsp");
+            return;
+        }
+        
         String action = request.getParameter("action");
         if (action == null) {
             action = "list"; // Default action
@@ -77,9 +92,8 @@ public class OfficialAppointmentServlet extends HttpServlet {
     }
 
     private void listOfficialAppointments(HttpServletRequest request, HttpServletResponse response) throws SQLException, IOException, ServletException {
-        // Assuming 'Official' is the type string stored in the database
-        // The DAO will handle decryption using its internally configured keys.
-        List<Appointment> listApp = appointmentDAO.getAppointmentsByType(Appointment.AppointmentType.OFFICIAL_VISIT.name());
+        // 修正: 使用新添加的AppointmentType静态常量
+        List<Appointment> listApp = appointmentDAO.getAppointmentsByType(Appointment.AppointmentType.OFFICIAL);
         request.setAttribute("listAppointment", listApp);
         request.getRequestDispatcher("/admin/officialAppointmentList.jsp").forward(request, response);
     }
@@ -90,7 +104,7 @@ public class OfficialAppointmentServlet extends HttpServlet {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Appointment ID is required for approval view.");
             return;
         }
-        // Corrected: getAppointmentById in DAO only takes ID, uses internal keys for decryption
+        // appointmentId已经是String类型
         Appointment appointment = appointmentDAO.getAppointmentById(appointmentId); 
         if (appointment == null) {
             response.sendError(HttpServletResponse.SC_NOT_FOUND, "Appointment not found.");
@@ -110,15 +124,19 @@ public class OfficialAppointmentServlet extends HttpServlet {
             return;
         }
 
-        boolean success = appointmentDAO.updateAppointmentStatus(appointmentId, Appointment.ApprovalStatus.APPROVED); // Use Enum
+        // appointmentId已经是String类型，Status需要传入String值
+        boolean success = appointmentDAO.updateAppointmentStatus(appointmentId, Appointment.Status.APPROVED); 
         if (success) {
             AuditLog log = new AuditLog();
             log.setUserId(currentUser.getUserId()); // Corrected: getUserId()
             log.setUsername(currentUser.getUsername());
             log.setActionType("OFFICIAL_APPOINTMENT_APPROVE");
-            log.setActionDetails("Approved official appointment ID: " + appointmentId + " by user " + currentUser.getUsername());
-            log.setActionTime(new java.sql.Timestamp(new Date().getTime()));
-            log.setClientIp(request.getRemoteAddr());
+            // 修复方法名: setActionDetails -> setDetails
+            log.setDetails("Approved official appointment ID: " + appointmentId + " by user " + currentUser.getUsername());
+            // 修复方法名: setActionTime -> setLogTimestamp
+            log.setLogTimestamp(new java.sql.Timestamp(new Date().getTime()));
+            // 修复方法名: setClientIp -> setIpAddress
+            log.setIpAddress(request.getRemoteAddr());
             auditLogDAO.createLog(log); // Corrected: use createLog with AuditLog object
             response.sendRedirect(request.getContextPath() + "/admin/officialAppointments?action=list&message=AppointmentApproved");
         } else {
@@ -135,15 +153,19 @@ public class OfficialAppointmentServlet extends HttpServlet {
             return;
         }
 
-        boolean success = appointmentDAO.updateAppointmentStatus(appointmentId, Appointment.ApprovalStatus.REJECTED); // Use Enum
+        // appointmentId已经是String类型，Status需要传入String值
+        boolean success = appointmentDAO.updateAppointmentStatus(appointmentId, Appointment.Status.REJECTED);
         if (success) {
             AuditLog log = new AuditLog();
             log.setUserId(currentUser.getUserId()); // Corrected: getUserId()
             log.setUsername(currentUser.getUsername());
             log.setActionType("OFFICIAL_APPOINTMENT_REJECT");
-            log.setActionDetails("Rejected official appointment ID: " + appointmentId + " by user " + currentUser.getUsername());
-            log.setActionTime(new java.sql.Timestamp(new Date().getTime()));
-            log.setClientIp(request.getRemoteAddr());
+            // 修复方法名: setActionDetails -> setDetails
+            log.setDetails("Rejected official appointment ID: " + appointmentId + " by user " + currentUser.getUsername());
+            // 修复方法名: setActionTime -> setLogTimestamp 
+            log.setLogTimestamp(new java.sql.Timestamp(new Date().getTime()));
+            // 修复方法名: setClientIp -> setIpAddress
+            log.setIpAddress(request.getRemoteAddr());
             auditLogDAO.createLog(log); // Corrected: use createLog with AuditLog object
             response.sendRedirect(request.getContextPath() + "/admin/officialAppointments?action=list&message=AppointmentRejected");
         } else {

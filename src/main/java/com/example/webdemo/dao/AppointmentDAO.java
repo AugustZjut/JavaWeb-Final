@@ -4,6 +4,8 @@ import com.example.webdemo.beans.AccompanyingPerson;
 import com.example.webdemo.beans.Appointment;
 import com.example.webdemo.util.CryptoUtils;
 import com.example.webdemo.util.DBUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.sql.DataSource;
 import java.io.IOException;
@@ -19,33 +21,37 @@ import java.util.UUID;
 
 public class AppointmentDAO {
 
+    private static final Logger logger = LoggerFactory.getLogger(AppointmentDAO.class);
     private DataSource dataSource;
-    private static String sm2PublicKeyHex;
-    private static String sm2PrivateKeyHex;
     private static String sm4KeyHex;
+
+    private static final String SQL_INSERT_APPOINTMENT = "INSERT INTO appointments (campus, entry_datetime, applicant_organization, applicant_name, applicant_id_card, applicant_phone, transport_mode, license_plate, official_visit_department_id, official_visit_contact_person, visit_reason, appointment_type, status, application_date, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)";
+    private static final String SQL_SELECT_BY_ID = "SELECT * FROM appointments WHERE appointment_id = ?";
+    private static final String SQL_SELECT_BY_TYPE = "SELECT * FROM appointments WHERE appointment_type = ? ORDER BY application_date DESC";
+    private static final String SQL_UPDATE_STATUS = "UPDATE appointments SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE appointment_id = ?";
+    private static final String SQL_SELECT_ACCOMPANYING = "SELECT * FROM accompanying_persons WHERE appointment_id = ?";
 
     static {
         try (InputStream input = DBUtils.class.getClassLoader().getResourceAsStream("db.properties")) {
             Properties prop = new Properties();
             if (input == null) {
-                System.out.println("Sorry, unable to find db.properties");
-                // Consider throwing a runtime exception or handling this more gracefully
+                logger.error("无法找到 db.properties 文件");
+                throw new RuntimeException("无法找到 db.properties 文件");
             } else {
                 prop.load(input);
-                sm2PublicKeyHex = prop.getProperty("sm2.publicKeyHex");
-                sm2PrivateKeyHex = prop.getProperty("sm2.privateKeyHex");
                 sm4KeyHex = prop.getProperty("sm4.keyHex");
 
-                // Basic validation for key presence
-                if (sm2PublicKeyHex == null || sm2PublicKeyHex.isEmpty() || sm2PublicKeyHex.equals("YOUR_SM2_PUBLIC_KEY_HEX_HERE") ||
-                    sm2PrivateKeyHex == null || sm2PrivateKeyHex.isEmpty() || sm2PrivateKeyHex.equals("YOUR_SM2_PRIVATE_KEY_HEX_HERE") ||
-                    sm4KeyHex == null || sm4KeyHex.isEmpty() || sm4KeyHex.equals("YOUR_128_BIT_SM4_KEY_HEX_HERE_32_CHARS")) {
-                    System.err.println("WARNING: SM2/SM4 keys are not configured properly in db.properties. Encryption/Decryption will fail.");
-                    // In a real application, you might want to prevent startup or use default (less secure) behavior.
+                // 验证 SM4 密钥是否正确配置
+                if (sm4KeyHex == null || sm4KeyHex.isEmpty() || sm4KeyHex.equals("YOUR_SM4_KEY_HEX_HERE")) {
+                    logger.error("SM4 密钥未正确配置在 db.properties 中。加解密将会失败。");
+                    throw new RuntimeException("SM4 密钥未正确配置。加解密将会失败。");
+                } else {
+                    logger.info("已成功加载 SM4 密钥");
                 }
             }
         } catch (IOException ex) {
-            ex.printStackTrace(); // Handle exception
+            logger.error("加载 db.properties 时出错", ex);
+            throw new RuntimeException("加载配置文件时出错", ex);
         }
     }
 
@@ -56,10 +62,7 @@ public class AppointmentDAO {
 
     // Updated createAppointment to take a single Appointment object which includes accompanying persons
     public boolean createAppointment(Appointment appointment) throws SQLException {
-        String sqlAppointment = "INSERT INTO appointments (appointment_id, campus, entry_datetime, applicant_organization, " +
-                "applicant_name, applicant_id_card, applicant_phone, transport_mode, license_plate, " +
-                "official_visit_department_id, official_visit_contact_person, contact_person_phone, visit_reason, appointment_type, status, application_date, created_at, updated_at) " + // Corrected column names
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())";
+        String sqlAppointment = "INSERT INTO appointments (campus, entry_datetime, applicant_organization, applicant_name, applicant_id_card, applicant_phone, transport_mode, license_plate, official_visit_department_id, official_visit_contact_person, visit_reason, appointment_type, status, application_date, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)";
         String sqlAccompanyingPerson = "INSERT INTO accompanying_persons (person_id, appointment_id, name, id_card, phone) VALUES (?, ?, ?, ?, ?)";
 
         Connection conn = null;
@@ -71,58 +74,24 @@ public class AppointmentDAO {
             conn.setAutoCommit(false); // Start transaction
 
             pstmtAppointment = conn.prepareStatement(sqlAppointment);
-            pstmtAppointment.setString(1, appointment.getAppointmentId()); // Use UUID from servlet
-            pstmtAppointment.setString(2, appointment.getCampus()); // Campus is already a String in bean
-            pstmtAppointment.setTimestamp(3, appointment.getEntryDatetime()); // Renamed from getAppointmentTime
-            pstmtAppointment.setString(4, appointment.getApplicantOrganization());
-
-            // Encrypt PII data before storing
-            pstmtAppointment.setString(5, CryptoUtils.encryptSM2(appointment.getApplicantName(), sm2PublicKeyHex));
-            pstmtAppointment.setString(6, CryptoUtils.encryptSM2(appointment.getApplicantIdCard(), sm2PublicKeyHex));
-            pstmtAppointment.setString(7, CryptoUtils.encryptSM4(appointment.getApplicantPhone(), sm4KeyHex));
-
-            pstmtAppointment.setString(8, appointment.getTransportMode()); // transportMode is already a String in bean
-            pstmtAppointment.setString(9, appointment.getLicensePlate());
-
-            if (Appointment.AppointmentType.OFFICIAL_VISIT.name().equals(appointment.getAppointmentType())) { // Compare string with enum name
-                // pstmtAppointment.setString(10, appointment.getVisitDepartment()); // Old: direct department name
-                // For official_visit_department_id, you'd typically get the ID based on the department name/code.
-                // This might involve another DAO call or passing the ID from the servlet if it's already resolved.
-                // For now, if getVisitDepartment() stores the ID as a string, it can be parsed.
-                // If it stores the name, you need a lookup. Assuming it might be an ID for now or needs to be handled in servlet.
-                // If visitDepartment is a name, you'd do: int deptId = departmentDAO.getDepartmentIdByName(appointment.getVisitDepartment());
-                // pstmtAppointment.setInt(10, deptId);
-                // For simplicity, if getVisitDepartment() is expected to return a string that can be parsed to an INT (the ID)
-                // This is a placeholder - robust error handling and type conversion needed here.
-                // It's better if the servlet resolves the department name to an ID before calling createAppointment.
-                // Assuming getVisitDepartment() now returns the department *ID* as a String due to form submission, or it's null.
-                if (appointment.getVisitDepartment() != null && !appointment.getVisitDepartment().isEmpty()) {
-                    try {
-                        pstmtAppointment.setInt(10, Integer.parseInt(appointment.getVisitDepartment()));
-                    } catch (NumberFormatException e) {
-                        // Handle error: department ID is not a valid integer. Maybe set to null or throw error.
-                        System.err.println("Warning: Could not parse visitDepartment to Integer: " + appointment.getVisitDepartment());
-                        pstmtAppointment.setNull(10, Types.INTEGER); 
-                    }
-                } else {
-                    pstmtAppointment.setNull(10, Types.INTEGER);
-                }
-                pstmtAppointment.setString(11, CryptoUtils.encryptSM2(appointment.getVisitContactPerson(), sm2PublicKeyHex));
-                pstmtAppointment.setString(12, CryptoUtils.encryptSM4(appointment.getContactPersonPhone(), sm4KeyHex)); // Example
-                pstmtAppointment.setString(13, appointment.getVisitReason());
+            pstmtAppointment.setString(1, appointment.getCampus());
+            pstmtAppointment.setTimestamp(2, appointment.getEntryDatetime());
+            pstmtAppointment.setString(3, appointment.getApplicantOrganization());
+            pstmtAppointment.setString(4, CryptoUtils.encryptSM4(appointment.getApplicantName(), sm4KeyHex));
+            pstmtAppointment.setString(5, CryptoUtils.encryptSM4(appointment.getApplicantIdCard(), sm4KeyHex));
+            pstmtAppointment.setString(6, CryptoUtils.encryptSM4(appointment.getApplicantPhone(), sm4KeyHex));
+            pstmtAppointment.setString(7, appointment.getTransportMode());
+            pstmtAppointment.setString(8, appointment.getLicensePlate());
+            if (appointment.getOfficialVisitDepartmentId() != null) {
+                pstmtAppointment.setInt(9, appointment.getOfficialVisitDepartmentId());
             } else {
-                pstmtAppointment.setNull(10, Types.INTEGER);
-                pstmtAppointment.setNull(11, Types.VARCHAR);
-                pstmtAppointment.setNull(12, Types.VARCHAR);
-                pstmtAppointment.setNull(13, Types.VARCHAR);
+                pstmtAppointment.setNull(9, Types.INTEGER);
             }
-
-            pstmtAppointment.setString(14, appointment.getAppointmentType()); // appointmentType is already a String in bean
-            // pstmtAppointment.setString(15, appointment.getApprovalStatus()); // approvalStatus is already a String in bean
-            pstmtAppointment.setString(15, appointment.getStatus()); // Corrected to use getStatus()
-            // pstmtAppointment.setTimestamp(16, appointment.getSubmissionTime());
-            pstmtAppointment.setTimestamp(16, appointment.getApplicationDate()); // Corrected to use getApplicationDate()
-
+            pstmtAppointment.setString(10, appointment.getOfficialVisitContactPerson());
+            pstmtAppointment.setString(11, appointment.getVisitReason());
+            pstmtAppointment.setString(12, appointment.getAppointmentType());
+            pstmtAppointment.setString(13, appointment.getStatus());
+            pstmtAppointment.setTimestamp(14, appointment.getApplicationDate());
 
             int affectedRows = pstmtAppointment.executeUpdate();
 
@@ -134,11 +103,11 @@ public class AppointmentDAO {
             if (appointment.getAccompanyingPersons() != null && !appointment.getAccompanyingPersons().isEmpty()) {
                 pstmtAccompanying = conn.prepareStatement(sqlAccompanyingPerson);
                 for (AccompanyingPerson person : appointment.getAccompanyingPersons()) {
-                    pstmtAccompanying.setString(1, person.getAccompanyingPersonId()); // Use String ID
-                    pstmtAccompanying.setString(2, appointment.getAppointmentId());
-                    // Encrypt PII for accompanying persons
-                    pstmtAccompanying.setString(3, CryptoUtils.encryptSM2(person.getName(), sm2PublicKeyHex));
-                    pstmtAccompanying.setString(4, CryptoUtils.encryptSM2(person.getIdCard(), sm2PublicKeyHex));
+                    pstmtAccompanying.setInt(1, person.getAccompanyingPersonId()); // Use String ID
+                    pstmtAccompanying.setInt(2, appointment.getAppointmentId());
+                    // Encrypt PII for accompanying persons - now all using SM4
+                    pstmtAccompanying.setString(3, CryptoUtils.encryptSM4(person.getName(), sm4KeyHex));
+                    pstmtAccompanying.setString(4, CryptoUtils.encryptSM4(person.getIdCard(), sm4KeyHex));
                     pstmtAccompanying.setString(5, CryptoUtils.encryptSM4(person.getPhone(), sm4KeyHex));
                     pstmtAccompanying.addBatch();
                 }
@@ -203,7 +172,7 @@ public class AppointmentDAO {
             // But for a public search by ID, this is problematic.
             // The requirement is "My Appointments": Query history. This implies the user is known.
             // Let's assume for "My Appointments", the user provides their ID card, and we encrypt it for the query.
-             encryptedApplicantIdCard = CryptoUtils.encryptSM2(applicantIdCard, sm2PublicKeyHex);
+             encryptedApplicantIdCard = CryptoUtils.encryptSM4(applicantIdCard, sm4KeyHex);
         } catch (Exception e) {
             throw new SQLException("Failed to encrypt ID card for search.", e);
         }
@@ -288,19 +257,66 @@ public class AppointmentDAO {
             try (ResultSet rs = pstmt.executeQuery()) {
                 while (rs.next()) {
                     AccompanyingPerson person = new AccompanyingPerson();
-                    person.setAccompanyingPersonId(rs.getString("person_id")); // Use String ID
-                    person.setAppointmentId(rs.getString("appointment_id")); // Use String ID
+                    person.setAccompanyingPersonId(rs.getInt("accompanying_person_id")); // 修正列名与数据库表一致
+                    person.setAppointmentId(rs.getInt("appointment_id")); // Use String ID
                     // Decrypt PII data based on the flag
                     if (decryptPII) {
-                        try {
-                            person.setName(CryptoUtils.decryptSM2(rs.getString("name"), sm2PrivateKeyHex));
-                            person.setIdCard(CryptoUtils.decryptSM2(rs.getString("id_card"), sm2PrivateKeyHex));
-                            person.setPhone(CryptoUtils.decryptSM4(rs.getString("phone"), sm4KeyHex));
-                        } catch (Exception e) {
-                            e.printStackTrace();
-                            // Handle decryption error, maybe set fields to "Error decrypting" or skip person
-                            // For now, rethrow as part of a larger failure
-                            throw new SQLException("Failed to decrypt accompanying person data for appointment ID: " + appointmentId, e);
+                        // 获取加密的敏感字段
+                        String name = rs.getString("name");
+                        String idCard = rs.getString("id_card");
+                        String phone = rs.getString("phone");
+                        
+                        // 默认使用原始值，即使未能解密也至少有数据供显示
+                        person.setName(name);
+                        person.setIdCard(idCard);
+                        person.setPhone(phone);
+                        
+                        // 尝试解密数据，如果失败则保留加密值但不添加"解密失败"标记
+                        if (sm4KeyHex != null && !sm4KeyHex.isEmpty()) {
+                            try {
+                                if (name != null) {
+                                    String decryptedName = CryptoUtils.decryptSM4(name, sm4KeyHex);
+                                    // 检查解密是否成功
+                                    // 简单检查解密是否成功 - 假设加密数据一定会包含'='，而有效的姓名不会包含
+                                    if (decryptedName != null && !decryptedName.contains("=")) {
+                                        person.setName(decryptedName);
+                                    } else {
+                                        logger.warn("随行人员姓名解密可能失败，使用原始值: {}", name);
+                                    }
+                                }
+                            } catch (Exception e) {
+                                logger.error("随行人员姓名解密失败: {} - {}", name, e.getMessage());
+                            }
+                            
+                            try {
+                                if (idCard != null) {
+                                    String decryptedIdCard = CryptoUtils.decryptSM4(idCard, sm4KeyHex);
+                                    // 检查解密是否成功 - 简单判断不含"="字符
+                                    if (decryptedIdCard != null && !decryptedIdCard.contains("=")) {
+                                        person.setIdCard(decryptedIdCard);
+                                    } else {
+                                        logger.warn("随行人员身份证解密可能失败，使用原始值: {}", idCard);
+                                    }
+                                }
+                            } catch (Exception e) {
+                                logger.error("随行人员身份证解密失败: {} - {}", idCard, e.getMessage());
+                            }
+                            
+                            try {
+                                if (phone != null) {
+                                    String decryptedPhone = CryptoUtils.decryptSM4(phone, sm4KeyHex);
+                                    // 检查解密是否成功 - 简单判断不含"="字符
+                                    if (decryptedPhone != null && !decryptedPhone.contains("=")) {
+                                        person.setPhone(decryptedPhone);
+                                    } else {
+                                        logger.warn("随行人员手机号解密可能失败，使用原始值: {}", phone);
+                                    }
+                                }
+                            } catch (Exception e) {
+                                logger.error("随行人员手机号解密失败: {} - {}", phone, e.getMessage());
+                            }
+                        } else {
+                            logger.error("SM4密钥未配置或为空，无法进行随行人员信息解密");
                         }
                     } else {
                         // Store raw encrypted data if not decrypting
@@ -318,12 +334,11 @@ public class AppointmentDAO {
         return persons;
     }
 
-    public boolean updateAppointmentStatus(String appointmentId, Appointment.ApprovalStatus status) throws SQLException { 
-        // String sql = "UPDATE appointments SET approval_status = ?, updated_at = NOW() WHERE appointment_id = ?";
-        String sql = "UPDATE appointments SET status = ?, updated_at = NOW() WHERE appointment_id = ?"; // Corrected to status column
+    public boolean updateAppointmentStatus(String appointmentId, String status) throws SQLException {
+        String sql = "UPDATE appointments SET status = ?, updated_at = NOW() WHERE appointment_id = ?";
         try (Connection conn = dataSource.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            pstmt.setString(1, status.name()); // Use enum's name() method for string representation
+            pstmt.setString(1, status);
             pstmt.setString(2, appointmentId);
             return pstmt.executeUpdate() > 0;
         } catch (SQLException e) {
@@ -333,57 +348,87 @@ public class AppointmentDAO {
     }
 
     // mapResultSetToAppointment now includes a flag to control decryption
-    private Appointment mapResultSetToAppointment(ResultSet rs, boolean decryptPII) throws SQLException, NoSuchAlgorithmException, InvalidKeySpecException, NoSuchProviderException, IOException {
+    private Appointment mapResultSetToAppointment(ResultSet rs, boolean decryptPII) throws Exception {
         Appointment app = new Appointment();
-        app.setAppointmentId(rs.getString("appointment_id"));
-        app.setCampus(rs.getString("campus")); // Directly set String
-        app.setEntryDatetime(rs.getTimestamp("entry_datetime")); // Renamed from setAppointmentTime
-        app.setApplicantOrganization(rs.getString("applicant_organization")); // Changed from setOrganization
-
+        app.setAppointmentId(rs.getInt("appointment_id"));
+        app.setCampus(rs.getString("campus"));
+        app.setEntryDatetime(rs.getTimestamp("entry_datetime"));
+        app.setApplicantOrganization(rs.getString("applicant_organization"));
         if (decryptPII) {
-            app.setApplicantName(CryptoUtils.decryptSM2(rs.getString("applicant_name"), sm2PrivateKeyHex));
-            app.setApplicantIdCard(CryptoUtils.decryptSM2(rs.getString("applicant_id_card"), sm2PrivateKeyHex));
-            app.setApplicantPhone(CryptoUtils.decryptSM4(rs.getString("applicant_phone"), sm4KeyHex));
+            // 获取加密的敏感字段
+            String applicantName = rs.getString("applicant_name");
+            String applicantIdCard = rs.getString("applicant_id_card");
+            String applicantPhone = rs.getString("applicant_phone");
             
-            if (rs.getString("contact_person_name") != null) {
-                 app.setVisitContactPerson(CryptoUtils.decryptSM2(rs.getString("contact_person_name"), sm2PrivateKeyHex)); // Changed from setContactPersonName
+            // 默认使用原始值，即使未能解密也至少有数据供显示
+            app.setApplicantName(applicantName);
+            app.setApplicantIdCard(applicantIdCard);
+            app.setApplicantPhone(applicantPhone);
+            
+            // 尝试解密数据，如果失败则保留加密值但不添加"解密失败"标记
+            if (sm4KeyHex != null && !sm4KeyHex.isEmpty()) {
+                try {
+                    if (applicantName != null) {
+                        String decryptedName = CryptoUtils.decryptSM4(applicantName, sm4KeyHex);
+                        // 检查解密是否成功（Base64编码的密文通常包含'='字符）
+                        // 简单检查解密是否成功 - 假设加密数据一定会包含'='，而有效的姓名不会包含
+                        if (decryptedName != null && !decryptedName.contains("=")) {
+                            app.setApplicantName(decryptedName);
+                        } else {
+                            logger.warn("姓名解密可能失败，使用原始值: {}", applicantName);
+                        }
+                    }
+                } catch (Exception e) {
+                    logger.error("姓名解密失败: {} - {}", applicantName, e.getMessage());
+                }
+                
+                try {
+                    if (applicantIdCard != null) {
+                        String decryptedIdCard = CryptoUtils.decryptSM4(applicantIdCard, sm4KeyHex);
+                        // 检查解密是否成功 - 简单判断不含"="字符
+                        if (decryptedIdCard != null && !decryptedIdCard.contains("=")) {
+                            app.setApplicantIdCard(decryptedIdCard);
+                        } else {
+                            logger.warn("身份证解密可能失败，使用原始值: {}", applicantIdCard);
+                        }
+                    }
+                } catch (Exception e) {
+                    logger.error("身份证解密失败: {} - {}", applicantIdCard, e.getMessage());
+                }
+                
+                try {
+                    if (applicantPhone != null) {
+                        String decryptedPhone = CryptoUtils.decryptSM4(applicantPhone, sm4KeyHex);
+                        // 检查解密是否成功 - 简单判断不含"="字符
+                        if (decryptedPhone != null && !decryptedPhone.contains("=")) {
+                            app.setApplicantPhone(decryptedPhone);
+                        } else {
+                            logger.warn("手机号解密可能失败，使用原始值: {}", applicantPhone);
+                        }
+                    }
+                } catch (Exception e) {
+                    logger.error("手机号解密失败: {} - {}", applicantPhone, e.getMessage());
+                }
+            } else {
+                logger.error("SM4密钥未配置或为空，无法进行解密");
             }
-             if (rs.getString("contact_person_phone") != null) {
-                app.setContactPersonPhone(CryptoUtils.decryptSM4(rs.getString("contact_person_phone"), sm4KeyHex));
-            }
-
         } else {
-            app.setApplicantName(rs.getString("applicant_name")); // Store raw encrypted
-            app.setApplicantIdCard(rs.getString("applicant_id_card")); // Store raw encrypted
-            app.setApplicantPhone(rs.getString("applicant_phone")); // Store raw encrypted
-            app.setVisitContactPerson(rs.getString("contact_person_name")); 
-            app.setContactPersonPhone(rs.getString("contact_person_phone"));
+            app.setApplicantName(rs.getString("applicant_name"));
+            app.setApplicantIdCard(rs.getString("applicant_id_card"));
+            app.setApplicantPhone(rs.getString("applicant_phone"));
         }
-
-        app.setTransportMode(rs.getString("transport_mode")); // Directly set String
+        app.setTransportMode(rs.getString("transport_mode"));
         app.setLicensePlate(rs.getString("license_plate"));
-        // app.setVisitDepartment(rs.getString("visit_department")); // Old column name
-        // Assuming you want to store the department ID (integer) in the bean, or fetch department name by ID
-        // If your bean's setVisitDepartment expects a String (name), you'd do a lookup here.
-        // If it expects the ID (as string or int), you can get it directly.
-        // For now, let's assume we retrieve the ID and the bean setter can handle it as a string, or it's handled elsewhere.
-        app.setVisitDepartment(rs.getString("official_visit_department_id")); // Corrected column name, might be null or an ID
-        // Contact person name/phone already handled with decryption flag
+        int deptId = rs.getInt("official_visit_department_id");
+        app.setOfficialVisitDepartmentId(rs.wasNull() ? null : deptId);
+        app.setOfficialVisitContactPerson(rs.getString("official_visit_contact_person"));
         app.setVisitReason(rs.getString("visit_reason"));
-        app.setAppointmentType(rs.getString("appointment_type")); // Directly set String
-        // app.setApprovalStatus(rs.getString("approval_status")); // Directly set String
-        app.setStatus(rs.getString("status")); // Corrected to use status column and setStatus
-        // app.setSubmissionTime(rs.getTimestamp("submission_time"));
-        app.setApplicationDate(rs.getTimestamp("application_date")); // Corrected to use application_date column and setApplicationDate
+        app.setAppointmentType(rs.getString("appointment_type"));
+        app.setStatus(rs.getString("status"));
+        app.setApplicationDate(rs.getTimestamp("application_date"));
         app.setCreatedAt(rs.getTimestamp("created_at"));
         app.setUpdatedAt(rs.getTimestamp("updated_at"));
-
-        // Fetch and set accompanying persons
-        // This should be done in a separate query or a JOIN if preferred, to avoid N+1 problems if calling this for multiple appointments.
-        // For a single appointment, a separate query is fine.
-        app.setAccompanyingPersons(getAccompanyingPersonsByAppointmentId(app.getAppointmentId(), decryptPII));
-
-
+        app.setAccompanyingPersons(getAccompanyingPersonsByAppointmentId(String.valueOf(app.getAppointmentId()), decryptPII));
         return app;
     }
 }

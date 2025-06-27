@@ -8,18 +8,35 @@
 <%-- Auth Check --%>
 <% 
     User loggedInAdmin = (User) session.getAttribute("adminUser");
-    if (loggedInAdmin == null || (!"SCHOOL_ADMIN".equals(loggedInAdmin.getRole()) && !"SYSTEM_ADMIN".equals(loggedInAdmin.getRole()))) {
-        response.sendRedirect(request.getContextPath() + "/admin/adminLogin.jsp");
+    if (loggedInAdmin == null || (!"School Admin".equals(loggedInAdmin.getRole()) && !"System Admin".equals(loggedInAdmin.getRole()))) {
+        response.sendRedirect(request.getContextPath() + "/admin/login");
         return;
     }
 
-    // 使用从请求属性中获取的数据，而不是直接创建DAO
-    List<Department> departmentList = (List<Department>) request.getAttribute("departmentList");
-    User userToEdit = (User) request.getAttribute("userToEdit");
+    UserDAO userDAO = new UserDAO();
+    DepartmentDAO departmentDAO = new DepartmentDAO();
+    List<Department> departmentList = departmentDAO.getAllDepartments();
 
-    // 表单行为由Servlet处理并设置属性
-    String formAction = (userToEdit != null) ? "update" : "create";
-    String pageTitle = (userToEdit != null) ? "编辑管理员 - " + userToEdit.getUsername() : "添加新管理员";
+    User userToEdit = null;
+    String formAction = "create";
+    String pageTitle = "添加新管理员";
+
+    String userIdStr = request.getParameter("id");
+    if (userIdStr != null && !userIdStr.isEmpty()) {
+        try {
+            int userId = Integer.parseInt(userIdStr);
+            userToEdit = userDAO.findById(userId);
+            if (userToEdit != null) {
+                formAction = "update";
+                pageTitle = "编辑管理员 - " + userToEdit.getUsername();
+            } else {
+                request.setAttribute("errorMessage", "未找到指定ID的管理员用户。");
+                // Forward to list page or show error on this page
+            }
+        } catch (NumberFormatException e) {
+            request.setAttribute("errorMessage", "无效的用户ID格式。");
+        }
+    }
 %>
 
 <html>
@@ -130,27 +147,21 @@
             <div>
                 <label for="role">角色:</label>
                 <select id="role" name="role" required>
-                    <option value="DEPARTMENT_ADMIN" <%= (userToEdit != null && "DEPARTMENT_ADMIN".equals(userToEdit.getRole())) ? "selected" : "" %>>部门管理员</option>
-                    <% if ("SYSTEM_ADMIN".equals(loggedInAdmin.getRole())) { %>
-                    <option value="SCHOOL_ADMIN" <%= (userToEdit != null && "SCHOOL_ADMIN".equals(userToEdit.getRole())) ? "selected" : "" %>>校级管理员</option>
-                    <option value="AUDIT_ADMIN" <%= (userToEdit != null && "AUDIT_ADMIN".equals(userToEdit.getRole())) ? "selected" : "" %>>审计管理员</option>
-                    <option value="SYSTEM_ADMIN" <%= (userToEdit != null && "SYSTEM_ADMIN".equals(userToEdit.getRole())) ? "selected" : "" %>>系统管理员</option>
-                    <% } %>
+                    <option value="Department Admin" <%= (userToEdit != null && "Department Admin".equals(userToEdit.getRole())) ? "selected" : "" %>>部门管理员</option>
+                    <option value="School Admin" <%= (userToEdit != null && "School Admin".equals(userToEdit.getRole())) ? "selected" : "" %>>校级管理员</option>
+                    <option value="Audit Admin" <%= (userToEdit != null && "Audit Admin".equals(userToEdit.getRole())) ? "selected" : "" %>>审计管理员</option>
+                    <option value="System Admin" <%= (userToEdit != null && "System Admin".equals(userToEdit.getRole())) ? "selected" : "" %>>系统管理员</option>
                 </select>
             </div>
 
             <% if (userToEdit != null) { %>
             <div>
-                <label for="lockoutTime">锁定状态:</label>
-                <select id="lockoutStatus" name="lockoutStatus" required>
-                    <option value="active" <%= userToEdit.getLockoutTime() == null || userToEdit.getLockoutTime().getTime() < System.currentTimeMillis() ? "selected" : "" %>>激活</option>
-                    <option value="locked" <%= userToEdit.getLockoutTime() != null && userToEdit.getLockoutTime().getTime() > System.currentTimeMillis() ? "selected" : "" %>>锁定</option>
+                <label for="accountStatus">账户状态:</label>
+                <select id="accountStatus" name="accountStatus" required>
+                    <option value="Active" <%= "Active".equals(userToEdit.getAccountStatus()) ? "selected" : "" %>>激活</option>
+                    <option value="Inactive" <%= "Inactive".equals(userToEdit.getAccountStatus()) ? "selected" : "" %>>禁用</option>
+                    <option value="Locked" <%= "Locked".equals(userToEdit.getAccountStatus()) ? "selected" : "" %>>锁定</option>
                 </select>
-            </div>
-            <div>
-                <label for="resetFailedAttempts">重置登录失败次数:</label>
-                <input type="checkbox" id="resetFailedAttempts" name="resetFailedAttempts" value="true">
-                <span style="font-size: 0.9em; color: #666;">（当前失败次数：<%= userToEdit.getFailedLoginAttempts() %>）</span>
             </div>
             <% } %>
 

@@ -3,7 +3,7 @@ package com.example.webdemo.servlet.mobile;
 import com.example.webdemo.beans.AccompanyingPerson;
 import com.example.webdemo.beans.Appointment;
 import com.example.webdemo.dao.AppointmentDAO;
-import com.example.webdemo.dao.UserDAO; // For potential PII encryption of user data if needed in future
+import com.example.webdemo.dao.UserDAO; 
 import com.example.webdemo.util.CryptoUtils;
 import com.example.webdemo.util.DBUtils;
 
@@ -19,19 +19,16 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 
 // @WebServlet("/mobile/makeAppointment") // Removed as per web.xml configuration
 public class MobileAppointmentServlet extends HttpServlet {
     private static final long serialVersionUID = 1L;
     private AppointmentDAO appointmentDAO;
-    // private UserDAO userDAO; // If direct user PII needs handling here
 
     @Override
     public void init() throws ServletException {
         try {
             appointmentDAO = new AppointmentDAO(DBUtils.getDataSource());
-            // userDAO = new UserDAO(DBUtils.getDataSource());
         } catch (Exception e) {
             throw new ServletException("Failed to initialize DAO for MobileAppointmentServlet", e);
         }
@@ -59,7 +56,7 @@ public class MobileAppointmentServlet extends HttpServlet {
         String licensePlate = request.getParameter("licensePlate");
 
         // Official visit fields
-        String visitDepartment = request.getParameter("visitDepartment");
+        String visitDepartmentStr = request.getParameter("visitDepartment");
         String contactPersonName = request.getParameter("contactPersonName");
         String contactPersonPhone = request.getParameter("contactPersonPhone");
         String visitReason = request.getParameter("visitReason");
@@ -88,9 +85,19 @@ public class MobileAppointmentServlet extends HttpServlet {
             return;
         }
 
-        Appointment.AppointmentType appointmentTypeEnum = Appointment.AppointmentType.valueOf(appointmentTypeStr);
-        Appointment.Campus campusEnum = Appointment.Campus.valueOf(campusStr);
-        // Appointment.Transportation transportation = Appointment.Transportation.valueOf(transportationStr); // Corrected: transportMode is a String
+        // 不使用枚举，直接使用字符串常量
+        String appointmentType = Appointment.AppointmentType.PUBLIC; // 默认值
+        if ("OFFICIAL".equalsIgnoreCase(appointmentTypeStr)) {
+            appointmentType = Appointment.AppointmentType.OFFICIAL;
+        }
+        
+        String campus = Appointment.Campus.MAIN; // 默认值
+        if ("SOUTH".equalsIgnoreCase(campusStr)) {
+            campus = Appointment.Campus.SOUTH;
+        } else if ("EAST".equalsIgnoreCase(campusStr)) {
+            campus = Appointment.Campus.EAST;
+        }
+
         Timestamp appointmentTime;
         try {
             appointmentTime = Timestamp.valueOf(LocalDateTime.parse(appointmentTimeStr));
@@ -101,44 +108,45 @@ public class MobileAppointmentServlet extends HttpServlet {
         }
 
         Appointment appointment = new Appointment();
-        appointment.setAppointmentId(UUID.randomUUID().toString());
-        appointment.setApplicantName(applicantName.trim()); // Trim before setting
-        appointment.setApplicantIdCard(trimmedApplicantIdCard); // Use trimmed and validated ID
-        appointment.setApplicantPhone(applicantPhone.trim()); // Trim before setting
-        // appointment.setOrganization(organization); // Corrected: use setApplicantOrganization
-        appointment.setApplicantOrganization(organization != null ? organization.trim() : null); // Trim before setting
-        // appointment.setAppointmentType(appointmentType); // Corrected: use enum.name()
-        appointment.setAppointmentType(appointmentTypeEnum.name());
-        // appointment.setCampus(campus); // Corrected: use enum.name()
-        appointment.setCampus(campusEnum.name());
-        // appointment.setAppointmentTime(appointmentTime);
-        appointment.setEntryDatetime(appointmentTime); // 使用更正的setter方法
-        // appointment.setTransportation(transportation); // Corrected: use setTransportMode with String
+        // 不设置ID，让数据库自动生成
+        appointment.setApplicantName(applicantName.trim()); 
+        appointment.setApplicantIdCard(trimmedApplicantIdCard); 
+        appointment.setApplicantPhone(applicantPhone.trim()); 
+        appointment.setApplicantOrganization(organization != null ? organization.trim() : null);
+        appointment.setAppointmentType(appointmentType);
+        appointment.setCampus(campus);
+        appointment.setEntryDatetime(appointmentTime); 
         appointment.setTransportMode(transportationStr);
-        appointment.setLicensePlate(licensePlate); // Potentially encrypt if sensitive
-        // appointment.setSubmissionTime(new Timestamp(System.currentTimeMillis()));
-        appointment.setApplicationDate(new Timestamp(System.currentTimeMillis())); // Corrected to setApplicationDate
+        appointment.setLicensePlate(licensePlate); 
+        appointment.setApplicationDate(new Timestamp(System.currentTimeMillis())); 
 
-        // if (appointmentType == Appointment.AppointmentType.OFFICIAL_VISIT) { // Original incorrect line
-        if (appointmentTypeEnum == Appointment.AppointmentType.OFFICIAL_VISIT) { // Corrected: use appointmentTypeEnum
-            if (visitDepartment == null || visitDepartment.trim().isEmpty() ||
+        // 如果是公务预约
+        if (Appointment.AppointmentType.OFFICIAL.equals(appointmentType)) {
+            if (visitDepartmentStr == null || visitDepartmentStr.trim().isEmpty() ||
                 contactPersonName == null || contactPersonName.trim().isEmpty() ||
-                contactPersonPhone == null || contactPersonPhone.trim().isEmpty() ||
                 visitReason == null || visitReason.trim().isEmpty()) {
                 request.setAttribute("errorMessage", "公务来访必填字段不能为空 (到访部门, 联系人, 事由).");
                 request.getRequestDispatcher("/mobile/makeAppointment.jsp").forward(request, response);
                 return;
             }
-            appointment.setVisitDepartment(visitDepartment.trim()); // Trim
-            // appointment.setContactPersonName(contactPersonName); // Potentially encrypt // Corrected: use setVisitContactPerson
-            appointment.setVisitContactPerson(contactPersonName.trim()); // Trim
-            appointment.setContactPersonPhone(contactPersonPhone.trim()); // Trim
-            appointment.setVisitReason(visitReason.trim()); // Trim
-            // appointment.setApprovalStatus(Appointment.ApprovalStatus.PENDING.name());
-            appointment.setStatus(Appointment.ApprovalStatus.PENDING.name()); // Corrected to setStatus
+            
+            // 类型转换: String转为Integer (如果visitDepartmentStr是部门ID)
+            Integer officialVisitDepartmentId = null;
+            try {
+                officialVisitDepartmentId = Integer.parseInt(visitDepartmentStr);
+            } catch (NumberFormatException e) {
+                request.setAttribute("errorMessage", "部门ID格式无效.");
+                request.getRequestDispatcher("/mobile/makeAppointment.jsp").forward(request, response);
+                return;
+            }
+            
+            appointment.setOfficialVisitDepartmentId(officialVisitDepartmentId);
+            appointment.setOfficialVisitContactPerson(contactPersonName.trim());
+            appointment.setVisitReason(visitReason.trim());
+            appointment.setStatus(Appointment.Status.PENDING_APPROVAL);
         } else {
-            // appointment.setApprovalStatus(Appointment.ApprovalStatus.AUTO_APPROVED.name()); // Auto-approve public access
-            appointment.setStatus(Appointment.ApprovalStatus.AUTO_APPROVED.name()); // Corrected to setStatus
+            // 社会公众预约自动批准
+            appointment.setStatus(Appointment.Status.APPROVED);
         }
 
         List<AccompanyingPerson> accompanyingPersons = new ArrayList<>();
@@ -163,12 +171,12 @@ public class MobileAppointmentServlet extends HttpServlet {
                     }
 
                     AccompanyingPerson person = new AccompanyingPerson();
-                    // person.setPersonId(UUID.randomUUID().toString()); // Corrected: use setAccompanyingPersonId
-                    person.setAccompanyingPersonId(UUID.randomUUID().toString());
-                    person.setAppointmentId(appointment.getAppointmentId());
-                    person.setName(currentAccName); // Use trimmed
-                    person.setIdCard(currentAccIdCard); // Use trimmed
-                    person.setPhone(currentAccPhone); // Use trimmed
+                    // 不设置ID，由数据库自动生成
+                    // 注意：这里需要修正appointmentId的处理，因为我们还没有保存appointment，所以没有ID
+                    // 我们会在添加完appointment后再设置此值
+                    person.setName(currentAccName); 
+                    person.setIdCard(currentAccIdCard); 
+                    person.setPhone(currentAccPhone); 
                     accompanyingPersons.add(person);
                 } else if (!currentAccName.isEmpty() || !currentAccIdCard.isEmpty() || !currentAccPhone.isEmpty()){
                     // If any field for an accompanying person is filled (after trimming), all main ones should be.

@@ -7,7 +7,7 @@ import com.example.webdemo.dao.DepartmentDAO;
 import com.example.webdemo.dao.AuditLogDAO;
 import com.example.webdemo.beans.AuditLog;
 import com.example.webdemo.util.CryptoUtils;
-import com.example.webdemo.util.DBUtils; // Assuming UserDAO gets datasource from DBUtils or constructor
+import com.example.webdemo.util.DBUtils;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
@@ -17,26 +17,24 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 
 import java.io.IOException;
+import java.security.NoSuchAlgorithmException;
+import java.security.NoSuchProviderException;
 import java.sql.Timestamp;
-import java.util.ArrayList; // Added import
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
-import java.util.UUID;
 
 @WebServlet("/admin/userManagement")
 public class UserManagementServlet extends HttpServlet {
     private UserDAO userDAO;
     private DepartmentDAO departmentDAO;
     private AuditLogDAO auditLogDAO;
-    // private static final String SM4_KEY; // Loaded from properties or constant
 
     @Override
     public void init() throws ServletException {
-        // Initialize DAOs, potentially passing DataSource from DBUtils
         userDAO = new UserDAO(DBUtils.getDataSource()); 
-        departmentDAO = new DepartmentDAO(); // Corrected: DepartmentDAO does not take DataSource in constructor
-        auditLogDAO = new AuditLogDAO(); // Corrected: AuditLogDAO does not take DataSource in constructor
-        // Load SM4_KEY if not already handled by CryptoUtils or UserDAO directly
+        departmentDAO = new DepartmentDAO();
+        auditLogDAO = new AuditLogDAO();
     }
 
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
@@ -44,7 +42,7 @@ public class UserManagementServlet extends HttpServlet {
         User loggedInAdmin = (session != null) ? (User) session.getAttribute("adminUser") : null;
 
         // Role check based on updated User bean's getRole() which returns String
-        if (loggedInAdmin == null || !("SchoolAdmin".equals(loggedInAdmin.getRole()) || "SystemAdmin".equals(loggedInAdmin.getRole()))) {
+        if (loggedInAdmin == null || !("SCHOOL_ADMIN".equals(loggedInAdmin.getRole()) || "SYSTEM_ADMIN".equals(loggedInAdmin.getRole()))) {
             response.sendRedirect(request.getContextPath() + "/admin/adminLogin.jsp");
             return;
         }
@@ -79,7 +77,7 @@ public class UserManagementServlet extends HttpServlet {
         HttpSession session = request.getSession(false);
         User loggedInAdmin = (session != null) ? (User) session.getAttribute("adminUser") : null;
 
-        if (loggedInAdmin == null || !("SchoolAdmin".equals(loggedInAdmin.getRole()) || "SystemAdmin".equals(loggedInAdmin.getRole()))) {
+        if (loggedInAdmin == null || !("SCHOOL_ADMIN".equals(loggedInAdmin.getRole()) || "SYSTEM_ADMIN".equals(loggedInAdmin.getRole()))) {
             response.sendRedirect(request.getContextPath() + "/admin/adminLogin.jsp");
             return;
         }
@@ -113,10 +111,10 @@ public class UserManagementServlet extends HttpServlet {
     private void listUsers(HttpServletRequest request, HttpServletResponse response, User loggedInAdmin) throws ServletException, IOException {
         try {
             List<User> userList;
-            if ("SchoolAdmin".equals(loggedInAdmin.getRole())) {
+            if ("SCHOOL_ADMIN".equals(loggedInAdmin.getRole())) {
                 // SchoolAdmin can only manage DepartmentAdmin users
-                userList = userDAO.getUsersByRole("DepartmentAdmin");
-            } else if ("SystemAdmin".equals(loggedInAdmin.getRole())) {
+                userList = userDAO.getUsersByRole("DEPARTMENT_ADMIN");
+            } else if ("SYSTEM_ADMIN".equals(loggedInAdmin.getRole())) {
                 // SystemAdmin can manage all users
                 userList = userDAO.listAllUsers();
             } else {
@@ -140,14 +138,15 @@ public class UserManagementServlet extends HttpServlet {
         User userToEdit = null;
         if (userIdStr != null && !userIdStr.isEmpty()) {
             try {
-                userToEdit = userDAO.findById(userIdStr);
+                // 修复类型转换: String转为int
+                userToEdit = userDAO.findById(Integer.parseInt(userIdStr));
                 if (userToEdit == null) {
                     request.setAttribute("errorMessage", "未找到指定ID的管理员用户。");
                     listUsers(request, response, loggedInAdmin);
                     return;
                 }
                 // Role-based access check for editing
-                if ("SchoolAdmin".equals(loggedInAdmin.getRole()) && !"DepartmentAdmin".equals(userToEdit.getRole())) {
+                if ("SCHOOL_ADMIN".equals(loggedInAdmin.getRole()) && !"DEPARTMENT_ADMIN".equals(userToEdit.getRole())) {
                     request.setAttribute("errorMessage", "您只能编辑部门管理员用户。");
                     listUsers(request, response, loggedInAdmin);
                     return;
@@ -170,13 +169,13 @@ public class UserManagementServlet extends HttpServlet {
 
     private void createUser(HttpServletRequest request, HttpServletResponse response, User loggedInAdmin) throws ServletException, IOException {
         User newUser = new User();
-        newUser.setUserId(UUID.randomUUID().toString()); 
+        // 移除设置userId，数据库会自动生成
         newUser.setUsername(request.getParameter("username"));
         String rawPassword = request.getParameter("password");
         String role = request.getParameter("role");
 
         // Role restriction for SchoolAdmin
-        if ("SchoolAdmin".equals(loggedInAdmin.getRole()) && !"DepartmentAdmin".equals(role)) {
+        if ("SCHOOL_ADMIN".equals(loggedInAdmin.getRole()) && !"DEPARTMENT_ADMIN".equals(role)) {
             request.setAttribute("errorMessage", "校级管理员只能创建部门管理员账户。");
             request.setAttribute("userToEdit", newUser); // Pass back entered data, including attempted role
             newUser.setRole(role); // Keep the attempted role for the form
@@ -185,22 +184,36 @@ public class UserManagementServlet extends HttpServlet {
         }
         
         // Password Complexity (example: at least 8 chars, 1 uppercase, 1 lowercase, 1 digit)
-        if (rawPassword == null || !rawPassword.matches("^(?=.*[a-z])(?=.*[A-Z])(?=.*\\\\d).{8,}$")) {
+        if (rawPassword == null || !rawPassword.matches("^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d).{8,}$")) {
             request.setAttribute("errorMessage", "密码必须至少8位长，包含大小写字母和数字。");
             request.setAttribute("userToEdit", newUser); // Pass back entered data
             showUserForm(request, response, loggedInAdmin);
             return;
         }
-        // newUser.setPassword(rawPassword); // DAO will hash it using SM3 // Original incorrect line
-        String hashedPassword = CryptoUtils.generateSM3Hash(rawPassword);
-        newUser.setPasswordHash(hashedPassword); // Corrected: set hashed password
+        // 生成密码哈希
+        String hashedPassword;
+        try {
+            hashedPassword = CryptoUtils.generateSM3Hash(rawPassword);
+        } catch (NoSuchAlgorithmException | NoSuchProviderException e) {
+            e.printStackTrace();
+            request.setAttribute("errorMessage", "关键安全组件初始化失败，无法创建用户。请联系系统管理员。");
+            request.setAttribute("userToEdit", newUser);
+            showUserForm(request, response, loggedInAdmin);
+            return;
+        }
+        newUser.setPasswordHash(hashedPassword);
 
-        // newUser.setName(request.getParameter("name")); // Original incorrect line
-        newUser.setFullName(request.getParameter("name")); // Corrected: use setFullName
-        newUser.setPhone(request.getParameter("phone")); // DAO will encrypt it using SM4
-        newUser.setRole(role); // Set the validated or admin-set role
-        newUser.setDepartmentId(request.getParameter("departmentId"));
-        newUser.setPasswordLastChanged(new Date()); // Set on creation
+        // 设置用户信息
+        newUser.setFullName(request.getParameter("fullName")); // 使用fullName字段
+        newUser.setPhoneNumber(request.getParameter("phoneNumber")); // 使用phoneNumber字段
+        newUser.setRole(role); // 设置已验证的角色
+        // 处理部门ID
+        String deptIdStr = request.getParameter("departmentId");
+        if (deptIdStr != null && !deptIdStr.isEmpty()) {
+            newUser.setDepartmentId(Integer.parseInt(deptIdStr));
+        }
+        // 修复类型转换: Date转为Timestamp
+        newUser.setPasswordLastChanged(new Timestamp(System.currentTimeMillis()));
         newUser.setFailedLoginAttempts(0);
         newUser.setLockoutTime(null);
 
@@ -231,10 +244,11 @@ public class UserManagementServlet extends HttpServlet {
     }
 
     private void updateUser(HttpServletRequest request, HttpServletResponse response, User loggedInAdmin) throws ServletException, IOException {
-        String userId = request.getParameter("userId");
+        String userIdStr = request.getParameter("userId");
         String newRole = request.getParameter("role");
         try {
-            User userToUpdate = userDAO.findById(userId);
+            // 修复类型转换: String转为int
+            User userToUpdate = userDAO.findById(Integer.parseInt(userIdStr));
 
             if (userToUpdate == null) {
                 request.setAttribute("errorMessage", "尝试更新的用户不存在。");
@@ -243,13 +257,13 @@ public class UserManagementServlet extends HttpServlet {
             }
 
             // Role-based access check for updating
-            if ("SchoolAdmin".equals(loggedInAdmin.getRole())) {
-                if (!"DepartmentAdmin".equals(userToUpdate.getRole())) {
+            if ("SCHOOL_ADMIN".equals(loggedInAdmin.getRole())) {
+                if (!"DEPARTMENT_ADMIN".equals(userToUpdate.getRole())) {
                     request.setAttribute("errorMessage", "您只能修改部门管理员用户。");
                     listUsers(request, response, loggedInAdmin);
                     return;
                 }
-                if (!"DepartmentAdmin".equals(newRole)) {
+                if (!"DEPARTMENT_ADMIN".equals(newRole)) {
                     request.setAttribute("errorMessage", "校级管理员不能将部门管理员更改为其他角色。");
                     request.setAttribute("userToEdit", userToUpdate); // Pass back current data
                     showUserForm(request, response, loggedInAdmin);
@@ -257,23 +271,64 @@ public class UserManagementServlet extends HttpServlet {
                 }
             }
 
-            userToUpdate.setFullName(request.getParameter("name")); 
-            userToUpdate.setPhone(request.getParameter("phone")); 
+            // 更新用户信息
+            userToUpdate.setFullName(request.getParameter("fullName")); 
+            userToUpdate.setPhoneNumber(request.getParameter("phoneNumber")); 
             userToUpdate.setRole(newRole);
-            userToUpdate.setDepartmentId(request.getParameter("departmentId"));
-            // Note: accountStatus, failedLoginAttempts, lockoutTime are managed by login process or specific admin actions
+            // 处理部门ID
+            String deptIdStr = request.getParameter("departmentId");
+            if (deptIdStr != null && !deptIdStr.isEmpty()) {
+                userToUpdate.setDepartmentId(Integer.parseInt(deptIdStr));
+            }
 
+            // 处理锁定状态更新
+            String lockoutStatus = request.getParameter("lockoutStatus");
+            boolean shouldLock = "locked".equals(lockoutStatus);
+            
+            // 处理重置登录失败次数
+            String resetFailedAttempts = request.getParameter("resetFailedAttempts");
+            boolean shouldResetAttempts = "true".equals(resetFailedAttempts);
+            
             boolean success = userDAO.updateUser(userToUpdate);
+            
+            // 更新锁定状态
+            if (shouldLock) {
+                // 锁定账户 30 分钟
+                success = success && userDAO.updateLockStatus(userToUpdate.getUserId(), true, 30);
+            } else {
+                // 解锁账户
+                success = success && userDAO.updateLockStatus(userToUpdate.getUserId(), false, null);
+            }
+            
+            // 重置登录失败次数
+            if (shouldResetAttempts) {
+                success = success && userDAO.resetFailedLoginAttempts(userToUpdate.getUserId());
+            }
 
+            // 处理密码更新，如果提供了新密码
             String newPassword = request.getParameter("password");
             if (newPassword != null && !newPassword.isEmpty()) {
-                if (!newPassword.matches("^(?=.*[a-z])(?=.*[A-Z])(?=.*\\\\d).{8,}$")) {
+                // 密码复杂度检查
+                if (!newPassword.matches("^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d).{8,}$")) {
                     request.setAttribute("errorMessage", "新密码必须至少8位长，包含大小写字母和数字。");
                     request.setAttribute("userToEdit", userToUpdate);
                     showUserForm(request, response, loggedInAdmin);
                     return;
                 }
-                success = success && userDAO.updatePassword(userId, newPassword);
+                
+                // 处理密码更新
+                try {
+                    String hashedPassword = CryptoUtils.generateSM3Hash(newPassword);
+                    userToUpdate.setPasswordHash(hashedPassword);
+                    userToUpdate.setPasswordLastChanged(new Timestamp(System.currentTimeMillis()));
+                    success = success && userDAO.updateUserPassword(userToUpdate);
+                } catch (NoSuchAlgorithmException | NoSuchProviderException e) {
+                    e.printStackTrace();
+                    request.setAttribute("errorMessage", "密码加密失败，无法更新用户密码。");
+                    request.setAttribute("userToEdit", userToUpdate);
+                    showUserForm(request, response, loggedInAdmin);
+                    return;
+                }
             }
 
             if (success) {
@@ -290,7 +345,7 @@ public class UserManagementServlet extends HttpServlet {
             request.setAttribute("errorMessage", "更新用户时发生错误: " + e.getMessage());
             // Attempt to refetch user data for the form if possible
             User userForForm = null; 
-            try { userForForm = userDAO.findById(userId); } catch (Exception ignored) {}
+            try { userForForm = userDAO.findById(Integer.parseInt(userIdStr)); } catch (Exception ignored) {}
             request.setAttribute("userToEdit", userForForm != null ? userForForm : new User()); 
             showUserForm(request, response, loggedInAdmin);
         }
@@ -299,7 +354,8 @@ public class UserManagementServlet extends HttpServlet {
     private void deleteUser(HttpServletRequest request, HttpServletResponse response, User loggedInAdmin) throws ServletException, IOException {
         String userId = request.getParameter("id");
         try {
-            User userToDelete = userDAO.findById(userId);
+            // 修复类型转换: String转为int
+            User userToDelete = userDAO.findById(Integer.parseInt(userId));
 
             if (userToDelete == null) {
                 request.setAttribute("errorMessage", "尝试删除的用户不存在。");
@@ -308,19 +364,21 @@ public class UserManagementServlet extends HttpServlet {
             }
 
             // Role-based access check for deleting
-            if ("SchoolAdmin".equals(loggedInAdmin.getRole()) && !"DepartmentAdmin".equals(userToDelete.getRole())) {
+            if ("SCHOOL_ADMIN".equals(loggedInAdmin.getRole()) && !"DEPARTMENT_ADMIN".equals(userToDelete.getRole())) {
                 request.setAttribute("errorMessage", "您只能删除部门管理员用户。");
                 listUsers(request, response, loggedInAdmin);
                 return;
             }
             
-            if (loggedInAdmin.getUserId().equals(userId)) {
+            // 修复类型转换: 比较整数ID
+            if (loggedInAdmin.getUserId() == Integer.parseInt(userId)) {
                 request.setAttribute("errorMessage", "不能删除当前登录的管理员账户。");
                 listUsers(request, response, loggedInAdmin);
                 return;
             }
 
-            boolean success = userDAO.deleteUser(userId);
+            // 修复类型转换: String转为int
+            boolean success = userDAO.deleteUser(Integer.parseInt(userId));
             if (success) {
                 logAdminAction(loggedInAdmin, "Delete User", "Deleted admin user: " + userToDelete.getUsername() + " (ID: " + userId + ")", request.getRemoteAddr());
                 request.setAttribute("successMessage", "管理员用户 '" + userToDelete.getUsername() + "' 删除成功。");
@@ -336,17 +394,19 @@ public class UserManagementServlet extends HttpServlet {
 
     private void logAdminAction(User admin, String actionType, String details, String clientIp) {
         AuditLog log = new AuditLog();
-        log.setUserId(admin.getUserId()); // Assumes admin.getUserId() returns String (UUID)
+        log.setUserId(admin.getUserId()); // 现在是int类型
         log.setUsername(admin.getUsername());
         log.setActionType(actionType);
-        log.setActionDetails(details);
-        log.setActionTime(new Timestamp(new Date().getTime()));
-        log.setClientIp(clientIp);
+        // 修复方法名: setActionDetails -> setDetails
+        log.setDetails(details);
+        // 修复方法名: setActionTime -> setLogTimestamp
+        log.setLogTimestamp(new Timestamp(new Date().getTime()));
+        // 修复方法名: setClientIp -> setIpAddress
+        log.setIpAddress(clientIp);
         try {
-            // auditLogDAO.addLog(log); // Assuming addLog is the method in AuditLogDAO // Original incorrect line
-            auditLogDAO.createLog(log); // Corrected: use createLog
+            auditLogDAO.createLog(log);
         } catch (Exception e) {
-            e.printStackTrace(); // Log failure to add audit log
+            e.printStackTrace();
         }
     }
 }

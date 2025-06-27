@@ -62,13 +62,13 @@
         <h1>管理员控制台</h1>
         <nav>
             <ul>
-                <% if ("SCHOOL_ADMIN".equals(adminUser.getRole()) || "SYSTEM_ADMIN".equals(adminUser.getRole())) { %>
+                <% if ("School Admin".equals(adminUser.getRole()) || "System Admin".equals(adminUser.getRole())) { %>
                     <li><a href="<%= request.getContextPath() %>/admin/userManagement">管理员管理</a></li>
                     <li><a href="<%= request.getContextPath() %>/admin/departmentManagement">部门管理</a></li>
                 <% } %>
                 <li><a href="<%= request.getContextPath() %>/admin/publicAppointmentManagement">公开预约管理</a></li>
                 <li><a href="<%= request.getContextPath() %>/admin/officialAppointmentManagement">公务预约管理</a></li>
-                <% if ("AUDIT_ADMIN".equals(adminUser.getRole()) || "SYSTEM_ADMIN".equals(adminUser.getRole())) { %>
+                <% if ("Audit Admin".equals(adminUser.getRole()) || "System Admin".equals(adminUser.getRole())) { %>
                     <li><a href="<%= request.getContextPath() %>/admin/auditLog">审计日志</a></li>
                 <% } %>
             </ul>

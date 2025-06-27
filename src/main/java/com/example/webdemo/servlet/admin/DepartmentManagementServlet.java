@@ -5,8 +5,11 @@ import com.example.webdemo.beans.Department;
 import com.example.webdemo.beans.User;
 import com.example.webdemo.dao.AuditLogDAO;
 import com.example.webdemo.dao.DepartmentDAO;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import jakarta.servlet.ServletException;
+import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -17,8 +20,10 @@ import java.sql.Timestamp;
 import java.util.List;
 import java.util.UUID;
 
+@WebServlet("/admin/departmentManagement")
 public class DepartmentManagementServlet extends HttpServlet {
     private static final long serialVersionUID = 1L;
+    private static final Logger logger = LoggerFactory.getLogger(DepartmentManagementServlet.class);
     private DepartmentDAO departmentDAO;
     private AuditLogDAO auditLogDAO;
 
@@ -29,6 +34,18 @@ public class DepartmentManagementServlet extends HttpServlet {
     }
 
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+        // 验证用户是否登录并具有正确的角色
+        HttpSession session = request.getSession(false);
+        User loggedInAdmin = (session != null) ? (User) session.getAttribute("adminUser") : null;
+
+        // 角色检查
+        if (loggedInAdmin == null || !("SCHOOL_ADMIN".equals(loggedInAdmin.getRole()) || 
+                                        "SYSTEM_ADMIN".equals(loggedInAdmin.getRole()))) {
+            logger.warn("未授权访问部门管理：{}", loggedInAdmin != null ? loggedInAdmin.getUsername() : "未登录");
+            response.sendRedirect(request.getContextPath() + "/admin/adminLogin.jsp");
+            return;
+        }
+        
         String action = request.getParameter("action");
         if (action == null) {
             action = "list"; // Default action
@@ -69,7 +86,9 @@ public class DepartmentManagementServlet extends HttpServlet {
                  // Forward to form with error and existing data if possible
                  String idParam = request.getParameter("departmentId");
                  Department department = new Department();
-                 department.setDepartmentId(idParam); // departmentId is String
+                 if (idParam != null && !idParam.isEmpty()) {
+                     department.setDepartmentId(Integer.parseInt(idParam)); // 将String转为int
+                 }
                  department.setDepartmentCode(request.getParameter("departmentCode"));
                  department.setDepartmentType(request.getParameter("departmentType"));
                  department.setDepartmentName(request.getParameter("departmentName"));
@@ -116,7 +135,8 @@ public class DepartmentManagementServlet extends HttpServlet {
 
     private void showEditForm(HttpServletRequest request, HttpServletResponse response) throws SQLException, ServletException, IOException {
         String id = request.getParameter("id");
-        Department existingDepartment = departmentDAO.getDepartmentById(id);
+        // 类型转换: 将String转为int
+        Department existingDepartment = departmentDAO.getDepartmentById(Integer.parseInt(id));
         if (existingDepartment == null) {
             request.setAttribute("error", "Department not found.");
             listDepartments(request, response);
@@ -141,14 +161,15 @@ public class DepartmentManagementServlet extends HttpServlet {
         HttpSession session = request.getSession(false);
         User currentUser = (session != null) ? (User) session.getAttribute("adminUser") : null; // Corrected session attribute name
         String currentUsername = (currentUser != null) ? currentUser.getUsername() : "System";
-        String currentUserId = (currentUser != null) ? currentUser.getUserId() : null; // Changed to String, default to null
+        Integer currentUserId = (currentUser != null) ? currentUser.getUserId() : null; // 改为Integer类型
 
         String actionDetails;
         boolean success;
 
         if (departmentId == null || departmentId.isEmpty()) {
             // New department
-            department.setDepartmentId(UUID.randomUUID().toString());
+            // 新部门不设置ID，让DAO/数据库自动处理ID生成
+            // 不调用setDepartmentId，对于int类型的ID，我们不能设置为null
             success = departmentDAO.addDepartment(department);
             actionDetails = "Created new department: " + department.getDepartmentName() + " (Code: " + department.getDepartmentCode() + ")";
             if (success) {
@@ -158,7 +179,8 @@ public class DepartmentManagementServlet extends HttpServlet {
             }
         } else {
             // Update existing department
-            department.setDepartmentId(departmentId);
+            // 类型转换: 将String转为Integer
+            department.setDepartmentId(Integer.parseInt(departmentId));
             success = departmentDAO.updateDepartment(department);
             actionDetails = "Updated department: " + department.getDepartmentName() + " (ID: " + department.getDepartmentId() + ")";
              if (success) {
@@ -173,9 +195,9 @@ public class DepartmentManagementServlet extends HttpServlet {
             log.setUserId(currentUserId);
             log.setUsername(currentUsername);
             log.setActionType((departmentId == null || departmentId.isEmpty()) ? "DEPARTMENT_CREATE" : "DEPARTMENT_UPDATE");
-            log.setActionDetails(actionDetails);
-            log.setActionTime(new Timestamp(System.currentTimeMillis()));
-            log.setClientIp(request.getRemoteAddr());
+            log.setDetails(actionDetails); // 修复方法名: 从setActionDetails改为setDetails
+            log.setLogTimestamp(new Timestamp(System.currentTimeMillis())); // 修复方法名: 从setActionTime改为setLogTimestamp
+            log.setIpAddress(request.getRemoteAddr()); // 修复方法名: 从setClientIp改为setIpAddress
             auditLogDAO.createLog(log);
         }
         
@@ -185,7 +207,8 @@ public class DepartmentManagementServlet extends HttpServlet {
 
     private void deleteDepartment(HttpServletRequest request, HttpServletResponse response) throws SQLException, IOException, ServletException {
         String id = request.getParameter("id");
-        Department deptToDelete = departmentDAO.getDepartmentById(id);
+        // 类型转换: 将String转为int
+        Department deptToDelete = departmentDAO.getDepartmentById(Integer.parseInt(id));
         String message = "";
         String error = "";
 
@@ -193,22 +216,23 @@ public class DepartmentManagementServlet extends HttpServlet {
             error = "Department not found for deletion.";
         } else {
             try {
-                boolean success = departmentDAO.deleteDepartment(id);
+                // 类型转换: 将String转为int
+                boolean success = departmentDAO.deleteDepartment(Integer.parseInt(id));
                 if (success) {
                     message = "Department \"" + deptToDelete.getDepartmentName() + "\" deleted successfully.";
                     
                     HttpSession session = request.getSession(false);
                     User currentUser = (session != null) ? (User) session.getAttribute("adminUser") : null; // Corrected session attribute name
                     String currentUsername = (currentUser != null) ? currentUser.getUsername() : "System";
-                    String currentUserId = (currentUser != null) ? currentUser.getUserId() : null; // Changed to String, default to null
+                    Integer currentUserId = (currentUser != null) ? currentUser.getUserId() : null; // 改为Integer类型
 
                     AuditLog log = new AuditLog(); // Use default constructor
                     log.setUserId(currentUserId);
                     log.setUsername(currentUsername);
                     log.setActionType("DEPARTMENT_DELETE");
-                    log.setActionDetails("Deleted department: " + deptToDelete.getDepartmentName() + " (ID: " + id + ")");
-                    log.setActionTime(new Timestamp(System.currentTimeMillis()));
-                    log.setClientIp(request.getRemoteAddr());
+                    log.setDetails("Deleted department: " + deptToDelete.getDepartmentName() + " (ID: " + id + ")"); // 修复方法名
+                    log.setLogTimestamp(new Timestamp(System.currentTimeMillis())); // 修复方法名
+                    log.setIpAddress(request.getRemoteAddr()); // 修复方法名
                     auditLogDAO.createLog(log);
                 } else {
                     error = "Failed to delete department \"" + deptToDelete.getDepartmentName() + "\". It might be in use or a database error occurred.";

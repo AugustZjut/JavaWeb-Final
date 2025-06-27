@@ -1,27 +1,31 @@
 package com.example.webdemo.beans;
 
+// 部门实体类，对应数据库 departments 表
 public class Department {
-    private String departmentId; // Changed from int to String
+    // 部门ID，自增主键
+    private int departmentId;
+    // 部门编号，唯一
     private String departmentCode;
-    private String departmentType; // E.g., "School", "Department"
+    // 部门名称
     private String departmentName;
+    // 部门类型（ADMINISTRATIVE、DIRECTLY_AFFILIATED、COLLEGE）
+    private String departmentType;
 
     public Department() {
     }
 
-    public Department(String departmentId, String departmentCode, String departmentType, String departmentName) { // Changed from int to String
+    public Department(int departmentId, String departmentCode, String departmentName, String departmentType) {
         this.departmentId = departmentId;
         this.departmentCode = departmentCode;
-        this.departmentType = departmentType;
         this.departmentName = departmentName;
+        this.departmentType = departmentType;
     }
 
-    // Getters and Setters
-    public String getDepartmentId() { // Changed from int to String
+    public int getDepartmentId() {
         return departmentId;
     }
 
-    public void setDepartmentId(String departmentId) { // Changed from int to String
+    public void setDepartmentId(int departmentId) {
         this.departmentId = departmentId;
     }
 
@@ -33,14 +37,6 @@ public class Department {
         this.departmentCode = departmentCode;
     }
 
-    public String getDepartmentType() {
-        return departmentType;
-    }
-
-    public void setDepartmentType(String departmentType) {
-        this.departmentType = departmentType;
-    }
-
     public String getDepartmentName() {
         return departmentName;
     }
@@ -49,13 +45,21 @@ public class Department {
         this.departmentName = departmentName;
     }
 
+    public String getDepartmentType() {
+        return departmentType;
+    }
+
+    public void setDepartmentType(String departmentType) {
+        this.departmentType = departmentType;
+    }
+
     @Override
     public String toString() {
         return "Department{" +
-                "departmentId='" + departmentId + '\'' + // Corrected for String
+                "departmentId=" + departmentId +
                 ", departmentCode='" + departmentCode + '\'' +
-                ", departmentType='" + departmentType + '\'' +
                 ", departmentName='" + departmentName + '\'' +
+                ", departmentType='" + departmentType + '\'' +
                 '}';
     }
 }

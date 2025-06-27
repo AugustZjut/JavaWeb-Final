@@ -1,247 +1,174 @@
 package com.example.webdemo.beans;
 
 import java.sql.Timestamp;
-import java.util.List; // Added for accompanyingPersons
+import java.util.List;
 
+// 预约记录实体类，对应数据库 appointments 表
 public class Appointment {
-    private String appointmentId; // Changed to String for UUID
+    // 预约类型枚举
+    public static class AppointmentType {
+        public static final String PUBLIC = "PUBLIC";  // 社会公众预约
+        public static final String OFFICIAL = "OFFICIAL";  // 公务预约
+    }
+    
+    // 预约状态枚举 
+    public static class Status {
+        public static final String PENDING_APPROVAL = "PENDING_APPROVAL"; // 待审批
+        public static final String APPROVED = "APPROVED";  // 已批准
+        public static final String REJECTED = "REJECTED";  // 已拒绝
+        public static final String CANCELLED = "CANCELLED";  // 已取消
+        public static final String COMPLETED = "COMPLETED";  // 已完成
+        public static final String EXPIRED = "EXPIRED";  // 已过期
+    }
+
+    // 校区枚举
+    public static class Campus {
+        public static final String MAIN = "MAIN";  // 主校区
+        public static final String SOUTH = "SOUTH";  // 南校区
+        public static final String EAST = "EAST";  // 东校区
+    }
+    
+    // 预约ID，自增主键
+    private int appointmentId;
+    // 预约类型（PUBLIC、OFFICIAL）
+    private String appointmentType;
+    // 校区
     private String campus;
-    private Timestamp entryDatetime; // Renamed from appointmentTime
-    private String applicantOrganization; // Renamed from organization
+    // 入校时间
+    private Timestamp entryDatetime;
+    // 申请单位
+    private String applicantOrganization;
+    // 申请人姓名（加密）
     private String applicantName;
+    // 申请人身份证号（加密）
     private String applicantIdCard;
+    // 申请人手机号（加密）
     private String applicantPhone;
-    private String transportMode; // Renamed from transportation
-    private String licensePlate; // Optional
-    private String visitDepartment;
-    private String visitContactPerson; // Renamed from contactPersonName
-    private String contactPersonPhone; // Added
+    // 交通方式
+    private String transportMode;
+    // 车牌号
+    private String licensePlate;
+    // 被访部门ID
+    private Integer officialVisitDepartmentId;
+    // 被访联系人
+    private String officialVisitContactPerson;
+    // 访问事由
     private String visitReason;
-    private String appointmentType; // "PUBLIC" or "OFFICIAL_VISIT"
-    private String status; // Renamed from approvalStatus to match DB
-    private Timestamp applicationDate; // Renamed from submissionTime to match DB
+    // 状态
+    private String status;
+    // 二维码数据
+    private String qrCodeData;
+    // 二维码生成时间
+    private Timestamp qrCodeGeneratedAt;
+    // 申请时间
+    private Timestamp applicationDate;
+    // 审批人ID
+    private Integer approvedByUserId;
+    // 审批时间
+    private Timestamp approvalDatetime;
+    // 创建时间
     private Timestamp createdAt;
+    // 更新时间
     private Timestamp updatedAt;
-    private List<AccompanyingPerson> accompanyingPersons; // Added
-
-    // Enum for Campus
-    public enum Campus {
-        ZHAOHUI_CAMPUS, PINGFENG_CAMPUS, MOGANSHAN_CAMPUS // Updated to actual campus values
-    }
-
-    // Enum for AppointmentType
-    public enum AppointmentType {
-        PUBLIC_ACCESS, OFFICIAL_VISIT // Modified from PUBLIC to PUBLIC_ACCESS
-    }
-
-    // Enum for ApprovalStatus
-    public enum ApprovalStatus {
-        PENDING, APPROVED, REJECTED, CANCELLED, AUTO_APPROVED
-    }
-
-    // Enum for Transportation (if it's an enum, otherwise keep as String)
-    // Assuming transportMode is a String as per previous usage.
-    // If it were an enum:
-    // public enum Transportation {
-    //     WALK, BICYCLE, CAR, PUBLIC_TRANSPORT
-    // }
-
+    // 随行人员列表
+    private List<AccompanyingPerson> accompanyingPersons;
 
     public Appointment() {
     }
 
-    // Getters and Setters
-    public String getAppointmentId() {
-        return appointmentId;
-    }
+    // 省略构造方法，可按需添加
 
-    public void setAppointmentId(String appointmentId) {
-        this.appointmentId = appointmentId;
-    }
+    public int getAppointmentId() { return appointmentId; }
+    public void setAppointmentId(int appointmentId) { this.appointmentId = appointmentId; }
 
-    public String getCampus() {
-        return campus;
-    }
+    public String getAppointmentType() { return appointmentType; }
+    public void setAppointmentType(String appointmentType) { this.appointmentType = appointmentType; }
 
-    public void setCampus(String campus) {
-        this.campus = campus;
-    }
+    public String getCampus() { return campus; }
+    public void setCampus(String campus) { this.campus = campus; }
 
-    public Timestamp getEntryDatetime() { // Renamed from getAppointmentTime
-        return entryDatetime;
-    }
+    public Timestamp getEntryDatetime() { return entryDatetime; }
+    public void setEntryDatetime(Timestamp entryDatetime) { this.entryDatetime = entryDatetime; }
 
-    public void setEntryDatetime(Timestamp entryDatetime) { // Renamed from setAppointmentTime
-        this.entryDatetime = entryDatetime;
-    }
+    public String getApplicantOrganization() { return applicantOrganization; }
+    public void setApplicantOrganization(String applicantOrganization) { this.applicantOrganization = applicantOrganization; }
 
-    public String getApplicantOrganization() {
-        return applicantOrganization;
-    }
+    public String getApplicantName() { return applicantName; }
+    public void setApplicantName(String applicantName) { this.applicantName = applicantName; }
 
-    public void setApplicantOrganization(String applicantOrganization) {
-        this.applicantOrganization = applicantOrganization;
-    }
+    public String getApplicantIdCard() { return applicantIdCard; }
+    public void setApplicantIdCard(String applicantIdCard) { this.applicantIdCard = applicantIdCard; }
 
-    public String getApplicantName() {
-        return applicantName;
-    }
+    public String getApplicantPhone() { return applicantPhone; }
+    public void setApplicantPhone(String applicantPhone) { this.applicantPhone = applicantPhone; }
 
-    public void setApplicantName(String applicantName) {
-        this.applicantName = applicantName;
-    }
+    public String getTransportMode() { return transportMode; }
+    public void setTransportMode(String transportMode) { this.transportMode = transportMode; }
 
-    public String getApplicantIdCard() {
-        return applicantIdCard;
-    }
+    public String getLicensePlate() { return licensePlate; }
+    public void setLicensePlate(String licensePlate) { this.licensePlate = licensePlate; }
 
-    public void setApplicantIdCard(String applicantIdCard) {
-        this.applicantIdCard = applicantIdCard;
-    }
+    public Integer getOfficialVisitDepartmentId() { return officialVisitDepartmentId; }
+    public void setOfficialVisitDepartmentId(Integer officialVisitDepartmentId) { this.officialVisitDepartmentId = officialVisitDepartmentId; }
 
-    public String getApplicantPhone() {
-        return applicantPhone;
-    }
+    public String getOfficialVisitContactPerson() { return officialVisitContactPerson; }
+    public void setOfficialVisitContactPerson(String officialVisitContactPerson) { this.officialVisitContactPerson = officialVisitContactPerson; }
 
-    public void setApplicantPhone(String applicantPhone) {
-        this.applicantPhone = applicantPhone;
-    }
+    public String getVisitReason() { return visitReason; }
+    public void setVisitReason(String visitReason) { this.visitReason = visitReason; }
 
-    public String getTransportMode() {
-        return transportMode;
-    }
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
 
-    public void setTransportMode(String transportMode) {
-        this.transportMode = transportMode;
-    }
+    public String getQrCodeData() { return qrCodeData; }
+    public void setQrCodeData(String qrCodeData) { this.qrCodeData = qrCodeData; }
 
-    public String getLicensePlate() {
-        return licensePlate;
-    }
+    public Timestamp getQrCodeGeneratedAt() { return qrCodeGeneratedAt; }
+    public void setQrCodeGeneratedAt(Timestamp qrCodeGeneratedAt) { this.qrCodeGeneratedAt = qrCodeGeneratedAt; }
 
-    public void setLicensePlate(String licensePlate) {
-        this.licensePlate = licensePlate;
-    }
+    public Timestamp getApplicationDate() { return applicationDate; }
+    public void setApplicationDate(Timestamp applicationDate) { this.applicationDate = applicationDate; }
 
-    public String getVisitDepartment() {
-        return visitDepartment;
-    }
+    public Integer getApprovedByUserId() { return approvedByUserId; }
+    public void setApprovedByUserId(Integer approvedByUserId) { this.approvedByUserId = approvedByUserId; }
 
-    public void setVisitDepartment(String visitDepartment) {
-        this.visitDepartment = visitDepartment;
-    }
+    public Timestamp getApprovalDatetime() { return approvalDatetime; }
+    public void setApprovalDatetime(Timestamp approvalDatetime) { this.approvalDatetime = approvalDatetime; }
 
-    public String getVisitContactPerson() {
-        return visitContactPerson;
-    }
+    public Timestamp getCreatedAt() { return createdAt; }
+    public void setCreatedAt(Timestamp createdAt) { this.createdAt = createdAt; }
 
-    public void setVisitContactPerson(String visitContactPerson) {
-        this.visitContactPerson = visitContactPerson;
-    }
-    
-    public String getContactPersonPhone() {
-        return contactPersonPhone;
-    }
+    public Timestamp getUpdatedAt() { return updatedAt; }
+    public void setUpdatedAt(Timestamp updatedAt) { this.updatedAt = updatedAt; }
 
-    public void setContactPersonPhone(String contactPersonPhone) {
-        this.contactPersonPhone = contactPersonPhone;
-    }
-
-    public String getVisitReason() {
-        return visitReason;
-    }
-
-    public void setVisitReason(String visitReason) {
-        this.visitReason = visitReason;
-    }
-
-    public String getAppointmentType() {
-        return appointmentType;
-    }
-
-    public void setAppointmentType(String appointmentType) {
-        this.appointmentType = appointmentType;
-    }
-
-    public String getStatus() {
-        return status;
-    }
-
-    public void setStatus(String status) {
-        this.status = status;
-    }
-
-    public Timestamp getApplicationDate() {
-        return applicationDate;
-    }
-
-    public void setApplicationDate(Timestamp applicationDate) {
-        this.applicationDate = applicationDate;
-    }
-
-    public Timestamp getCreatedAt() {
-        return createdAt;
-    }
-
-    public void setCreatedAt(Timestamp createdAt) {
-        this.createdAt = createdAt;
-    }
-
-    public Timestamp getUpdatedAt() {
-        return updatedAt;
-    }
-
-    public void setUpdatedAt(Timestamp updatedAt) {
-        this.updatedAt = updatedAt;
-    }
-
-    public List<AccompanyingPerson> getAccompanyingPersons() {
-        return accompanyingPersons;
-    }
-
-    public void setAccompanyingPersons(List<AccompanyingPerson> accompanyingPersons) {
-        this.accompanyingPersons = accompanyingPersons;
-    }
-
-    // Convenience getter for DAO layer that might expect organization
-    public String getOrganization() {
-        return applicantOrganization;
-    }
-    
-    // Convenience getter for DAO layer that might expect transportation as an enum string
-    // This assumes transportMode is the string representation.
-    public String getTransportation() { 
-        return transportMode;
-    }
-
-    // Convenience getter for DAO layer
-    public String getContactPersonName() {
-        return visitContactPerson;
-    }
-
+    public List<AccompanyingPerson> getAccompanyingPersons() { return accompanyingPersons; }
+    public void setAccompanyingPersons(List<AccompanyingPerson> accompanyingPersons) { this.accompanyingPersons = accompanyingPersons; }
 
     @Override
     public String toString() {
         return "Appointment{" +
-                "appointmentId='" + (appointmentId != null ? appointmentId.replace("'", "\\'") : null) + '\'' +
-                ", campus='" + (campus != null ? campus.replace("'", "\\'") : null) + '\'' +
+                "appointmentId=" + appointmentId +
+                ", appointmentType='" + appointmentType + '\'' +
+                ", campus='" + campus + '\'' +
                 ", entryDatetime=" + entryDatetime +
-                ", applicantOrganization='" + (applicantOrganization != null ? applicantOrganization.replace("'", "\\'") : null) + '\'' +
-                ", applicantName='" + (applicantName != null ? applicantName.replace("'", "\\'") : null) + '\'' +
-                ", applicantIdCard='" + (applicantIdCard != null ? applicantIdCard.replace("'", "\\'") : null) + '\'' +
-                ", applicantPhone='" + (applicantPhone != null ? applicantPhone.replace("'", "\\'") : null) + '\'' +
-                ", transportMode='" + (transportMode != null ? transportMode.replace("'", "\\'") : null) + '\'' +
-                ", licensePlate='" + (licensePlate != null ? licensePlate.replace("'", "\\'") : null) + '\'' +
-                ", visitDepartment='" + (visitDepartment != null ? visitDepartment.replace("'", "\\'") : null) + '\'' +
-                ", visitContactPerson='" + (visitContactPerson != null ? visitContactPerson.replace("'", "\\'") : null) + '\'' +
-                ", contactPersonPhone='" + (contactPersonPhone != null ? contactPersonPhone.replace("'", "\\'") : null) + '\'' +
-                ", visitReason='" + (visitReason != null ? visitReason.replace("'", "\\'") : null) + '\'' +
-                ", appointmentType='" + (appointmentType != null ? appointmentType.replace("'", "\\'") : null) + '\'' +
-                ", status='" + (status != null ? status.replace("'", "\\'") : null) + '\'' +
+                ", applicantOrganization='" + applicantOrganization + '\'' +
+                ", applicantName='" + applicantName + '\'' +
+                ", applicantIdCard='" + applicantIdCard + '\'' +
+                ", applicantPhone='" + applicantPhone + '\'' +
+                ", transportMode='" + transportMode + '\'' +
+                ", licensePlate='" + licensePlate + '\'' +
+                ", officialVisitDepartmentId=" + officialVisitDepartmentId +
+                ", officialVisitContactPerson='" + officialVisitContactPerson + '\'' +
+                ", visitReason='" + visitReason + '\'' +
+                ", status='" + status + '\'' +
+                ", qrCodeData='" + qrCodeData + '\'' +
+                ", qrCodeGeneratedAt=" + qrCodeGeneratedAt +
                 ", applicationDate=" + applicationDate +
+                ", approvedByUserId=" + approvedByUserId +
+                ", approvalDatetime=" + approvalDatetime +
                 ", createdAt=" + createdAt +
                 ", updatedAt=" + updatedAt +
-                ", accompanyingPersons=" + (accompanyingPersons != null ? accompanyingPersons.toString().replace("'", "\\'") : null) +
+                ", accompanyingPersons=" + (accompanyingPersons != null ? accompanyingPersons.toString() : null) +
                 '}';
     }
 }

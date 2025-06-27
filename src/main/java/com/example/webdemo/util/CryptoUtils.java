@@ -3,249 +3,195 @@ package com.example.webdemo.util;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.util.encoders.Hex;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.security.Security;
-// Added imports for SM4 and SM2
 import javax.crypto.Cipher;
-import javax.crypto.KeyGenerator;
-import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
-import javax.crypto.NoSuchPaddingException;
-import javax.crypto.IllegalBlockSizeException;
-import javax.crypto.BadPaddingException;
-import java.security.InvalidKeyException;
-import java.security.KeyFactory;
-import java.security.KeyPair;
-import java.security.KeyPairGenerator;
-import java.security.PrivateKey;
-import java.security.PublicKey;
-import java.security.SecureRandom;
+import java.nio.charset.StandardCharsets;
+import java.security.*;
 import java.security.spec.ECGenParameterSpec;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.X509EncodedKeySpec;
+import java.util.Base64;
 
 public class CryptoUtils {
 
     static {
-        // Add Bouncy Castle as a security provider
+        // 添加BouncyCastle作为安全提供者
         if (Security.getProvider(BouncyCastleProvider.PROVIDER_NAME) == null) {
             Security.addProvider(new BouncyCastleProvider());
         }
     }
 
-    /**
-     * Generates SM3 hash for the input string.
-     *
-     * @param input The string to hash.
-     * @return The SM3 hash projetos a hex string, or null if an error occurs.
-     */
-    public static String generateSM3Hash(String input) {
-        if (input == null) {
-            return null;
-        }
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SM3", BouncyCastleProvider.PROVIDER_NAME);
-            byte[] hashBytes = digest.digest(input.getBytes(StandardCharsets.UTF_8));
-            return Hex.toHexString(hashBytes);
-        } catch (NoSuchAlgorithmException e) {
-            System.err.println("SM3 algorithm not found: " + e.getMessage());
-            return null;
-        } catch (Exception e) {
-            System.err.println("Error generating SM3 hash: " + e.getMessage());
-            return null;
-        }
-    }
+    // --- SM2 (公钥加密) ---
 
     /**
-     * Encrypts data using SM2 algorithm.
-     * Assumes publicKeyString is a hex representation of a DER-encoded X.509 public key.
+     * 生成SM2密钥对。
+     * @return KeyPair
      */
-    public static String encryptSM2(String data, String publicKeyString) {
-        if (data == null || publicKeyString == null) {
-            return null;
-        }
-        try {
-            byte[] publicKeyBytes = Hex.decode(publicKeyString);
-            X509EncodedKeySpec x509KeySpec = new X509EncodedKeySpec(publicKeyBytes);
-            KeyFactory keyFactory = KeyFactory.getInstance("EC", BouncyCastleProvider.PROVIDER_NAME);
-            PublicKey publicKey = keyFactory.generatePublic(x509KeySpec);
-
-            Cipher cipher = Cipher.getInstance("SM2", BouncyCastleProvider.PROVIDER_NAME);
-            cipher.init(Cipher.ENCRYPT_MODE, publicKey);
-            byte[] encryptedBytes = cipher.doFinal(data.getBytes(StandardCharsets.UTF_8));
-            return Hex.toHexString(encryptedBytes);
-        } catch (NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException |
-                 IllegalBlockSizeException | BadPaddingException | InvalidKeySpecException e) {
-            System.err.println("SM2 Encryption error: " + e.getMessage());
-            e.printStackTrace(); // For detailed debugging
-            return null;
-        } catch (Exception e) {
-            System.err.println("Unexpected error during SM2 encryption: " + e.getMessage());
-            e.printStackTrace();
-            return null;
-        }
-    }
-
-    /**
-     * Decrypts data using SM2 algorithm.
-     * Assumes privateKeyString is a hex representation of a DER-encoded PKCS#8 private key.
-     */
-    public static String decryptSM2(String encryptedDataHex, String privateKeyString) {
-        if (encryptedDataHex == null || privateKeyString == null) {
-            return null;
-        }
-        try {
-            byte[] privateKeyBytes = Hex.decode(privateKeyString);
-            PKCS8EncodedKeySpec pkcs8KeySpec = new PKCS8EncodedKeySpec(privateKeyBytes);
-            KeyFactory keyFactory = KeyFactory.getInstance("EC", BouncyCastleProvider.PROVIDER_NAME);
-            PrivateKey privateKey = keyFactory.generatePrivate(pkcs8KeySpec);
-
-            Cipher cipher = Cipher.getInstance("SM2", BouncyCastleProvider.PROVIDER_NAME);
-            cipher.init(Cipher.DECRYPT_MODE, privateKey);
-            byte[] decryptedBytes = cipher.doFinal(Hex.decode(encryptedDataHex));
-            return new String(decryptedBytes, StandardCharsets.UTF_8);
-        } catch (NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException |
-                 IllegalBlockSizeException | BadPaddingException | InvalidKeySpecException e) {
-            System.err.println("SM2 Decryption error: " + e.getMessage());
-            e.printStackTrace(); // For detailed debugging
-            return null;
-        } catch (Exception e) {
-            System.err.println("Unexpected error during SM2 decryption: " + e.getMessage());
-            e.printStackTrace();
-            return null;
-        }
-    }
-
-    /**
-     * Encrypts data using SM4 algorithm (ECB mode).
-     * keyString must be a 32-character hex string (128-bit key).
-     */
-    public static String encryptSM4(String data, String keyString) {
-        if (data == null || keyString == null) {
-            return null;
-        }
-        try {
-            byte[] keyBytes = Hex.decode(keyString);
-            SecretKeySpec secretKey = new SecretKeySpec(keyBytes, "SM4");
-            // BouncyCastle provider is needed for "SM4/ECB/PKCS5Padding" or "SM4" if default JCE doesn't have it
-            // Using "SM4/ECB/PKCS7Padding" as BouncyCastle often uses PKCS7 for PKCS5
-            Cipher cipher = Cipher.getInstance("SM4/ECB/PKCS7Padding", BouncyCastleProvider.PROVIDER_NAME);
-            cipher.init(Cipher.ENCRYPT_MODE, secretKey);
-            byte[] encryptedBytes = cipher.doFinal(data.getBytes(StandardCharsets.UTF_8));
-            return Hex.toHexString(encryptedBytes);
-        } catch (NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException |
-                 IllegalBlockSizeException | BadPaddingException e) {
-            System.err.println("SM4 Encryption error: " + e.getMessage());
-            e.printStackTrace();
-            return null;
-        } catch (Exception e) {
-            System.err.println("Unexpected error during SM4 encryption: " + e.getMessage());
-            e.printStackTrace();
-            return null;
-        }
-    }
-
-    /**
-     * Decrypts data using SM4 algorithm (ECB mode).
-     * keyString must be a 32-character hex string (128-bit key).
-     */
-    public static String decryptSM4(String encryptedDataHex, String keyString) {
-        if (encryptedDataHex == null || keyString == null) {
-            return null;
-        }
-        try {
-            byte[] keyBytes = Hex.decode(keyString);
-            SecretKeySpec secretKey = new SecretKeySpec(keyBytes, "SM4");
-            Cipher cipher = Cipher.getInstance("SM4/ECB/PKCS7Padding", BouncyCastleProvider.PROVIDER_NAME);
-            cipher.init(Cipher.DECRYPT_MODE, secretKey);
-            byte[] decryptedBytes = cipher.doFinal(Hex.decode(encryptedDataHex));
-            return new String(decryptedBytes, StandardCharsets.UTF_8);
-        } catch (NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException |
-                 IllegalBlockSizeException | BadPaddingException e) {
-            System.err.println("SM4 Decryption error: " + e.getMessage());
-            e.printStackTrace();
-            return null;
-        } catch (Exception e) {
-            System.err.println("Unexpected error during SM4 decryption: " + e.getMessage());
-            e.printStackTrace();
-            return null;
-        }
-    }
-
-    // Helper method to generate an SM2 KeyPair
-    public static KeyPair generateSM2KeyPair() throws NoSuchAlgorithmException, java.security.spec.InvalidParameterSpecException, java.security.InvalidAlgorithmParameterException, java.security.NoSuchProviderException {
+    public static KeyPair generateSM2KeyPair() throws Exception {
         KeyPairGenerator kpg = KeyPairGenerator.getInstance("EC", BouncyCastleProvider.PROVIDER_NAME);
-        // Standard SM2 curve sm2p256v1
         kpg.initialize(new ECGenParameterSpec("sm2p256v1"), new SecureRandom());
         return kpg.generateKeyPair();
     }
 
-    // Helper method to generate an SM4 Key (128 bit)
-    public static SecretKey generateSM4Key() throws NoSuchAlgorithmException, java.security.NoSuchProviderException {
-        KeyGenerator keyGen = KeyGenerator.getInstance("SM4", BouncyCastleProvider.PROVIDER_NAME);
-        keyGen.init(128, new SecureRandom()); // 128 bits
-        return keyGen.generateKey();
+    /**
+     * 从十六进制字符串加载SM2公钥。
+     * @param hexPublicKey 十六进制公钥字符串
+     * @return PublicKey
+     */
+    public static PublicKey getPublicKeyFromHex(String hexPublicKey) throws NoSuchAlgorithmException, InvalidKeySpecException, NoSuchProviderException {
+        KeyFactory keyFactory = KeyFactory.getInstance("EC", BouncyCastleProvider.PROVIDER_NAME);
+        byte[] decodedKey = Hex.decode(hexPublicKey);
+        X509EncodedKeySpec keySpec = new X509EncodedKeySpec(decodedKey);
+        return keyFactory.generatePublic(keySpec);
+    }
+
+    /**
+     * 从十六进制字符串加载SM2私钥。
+     * @param hexPrivateKey 十六进制私钥字符串
+     * @return PrivateKey
+     */
+    public static PrivateKey getPrivateKeyFromHex(String hexPrivateKey) throws NoSuchAlgorithmException, InvalidKeySpecException, NoSuchProviderException, IllegalArgumentException {
+        if (hexPrivateKey == null || hexPrivateKey.isEmpty()) {
+            throw new IllegalArgumentException("Private key hex string cannot be null or empty");
+        }
+        KeyFactory keyFactory = KeyFactory.getInstance("EC", BouncyCastleProvider.PROVIDER_NAME);
+        byte[] decodedKey = Hex.decode(hexPrivateKey);
+        PKCS8EncodedKeySpec keySpec = new PKCS8EncodedKeySpec(decodedKey);
+        return keyFactory.generatePrivate(keySpec);
+    }
+
+    /**
+     * SM2 加密 (输入为字节数组)
+     * @param data 待加密数据
+     * @param publicKey 公钥
+     * @return Base64编码的加密字符串
+     */
+    public static String encryptSM2(byte[] data, PublicKey publicKey) throws Exception {
+        Cipher cipher = Cipher.getInstance("SM2", BouncyCastleProvider.PROVIDER_NAME);
+        cipher.init(Cipher.ENCRYPT_MODE, publicKey);
+        return Base64.getEncoder().encodeToString(cipher.doFinal(data));
+    }
+    
+    /**
+     * SM2 加密 (输入为字符串)
+     * @param data 待加密数据
+     * @param publicKeyHex 十六进制公钥
+     * @return Base64编码的加密字符串
+     */
+    public static String encryptSM2(String data, String publicKeyHex) throws Exception {
+        PublicKey publicKey = getPublicKeyFromHex(publicKeyHex);
+        return encryptSM2(data.getBytes(StandardCharsets.UTF_8), publicKey);
+    }
+
+    /**
+     * SM2 解密 (输出为字节数组)
+     * @param encryptedData Base64编码的加密数据
+     * @param privateKey 私钥
+     * @return 解密后的字节数组
+     */
+    public static byte[] decryptSM2(String encryptedData, PrivateKey privateKey) throws Exception {
+        Cipher cipher = Cipher.getInstance("SM2", BouncyCastleProvider.PROVIDER_NAME);
+        cipher.init(Cipher.DECRYPT_MODE, privateKey);
+        return cipher.doFinal(Base64.getDecoder().decode(encryptedData));
+    }
+    
+    /**
+     * SM2 解密 (输出为字符串)
+     * @param encryptedData Base64编码的加密数据
+     * @param privateKeyHex 十六进制私钥
+     * @return 解密后的字符串
+     */
+    public static String decryptSM2(String encryptedData, String privateKeyHex) throws Exception {
+        if (encryptedData == null) {
+            return null; // 如果输入为空，则直接返回null
+        }
+        if (privateKeyHex == null || privateKeyHex.isEmpty()) {
+            throw new IllegalArgumentException("Private key hex string cannot be null or empty");
+        }
+        PrivateKey privateKey = getPrivateKeyFromHex(privateKeyHex);
+        byte[] decryptedBytes = decryptSM2(encryptedData, privateKey);
+        return new String(decryptedBytes, StandardCharsets.UTF_8);
     }
 
 
-    public static void main(String[] args) {
-        // Test SM3
-        String originalPassword = "TestPassword123!";
-        String sm3Hash = generateSM3Hash(originalPassword);
-        System.out.println("Original Password: " + originalPassword);
-        System.out.println("SM3 Hash: " + sm3Hash);
-        System.out.println("SM3 Hash Length (Hex): " + (sm3Hash != null ? sm3Hash.length() : 0));
+    // --- SM3 (哈希算法) ---
 
-        // Test SM4 Key Generation and Encryption/Decryption
-        try {
-            SecretKey sm4Key = generateSM4Key();
-            String sm4KeyHex = Hex.toHexString(sm4Key.getEncoded());
-            System.out.println("\nGenerated SM4 Key (Hex): " + sm4KeyHex);
-            System.out.println("SM4 Key Length (Hex): " + sm4KeyHex.length());
+    /**
+     * 生成SM3哈希值。
+     * @param data 原始数据
+     * @return 十六进制哈希字符串
+     */
+    public static String generateSM3Hash(String data) throws NoSuchAlgorithmException, NoSuchProviderException {
+        MessageDigest md = MessageDigest.getInstance("SM3", BouncyCastleProvider.PROVIDER_NAME);
+        byte[] hashBytes = md.digest(data.getBytes(StandardCharsets.UTF_8));
+        return Hex.toHexString(hashBytes);
+    }
 
-            String originalDataSM4 = "This is a secret message for SM4.";
-            System.out.println("Original Data for SM4: " + originalDataSM4);
 
-            String encryptedSM4 = encryptSM4(originalDataSM4, sm4KeyHex);
-            System.out.println("Encrypted SM4 (Hex): " + encryptedSM4);
+    // --- SM4 (对称加密) ---
 
-            String decryptedSM4 = decryptSM4(encryptedSM4, sm4KeyHex);
-            System.out.println("Decrypted SM4: " + decryptedSM4);
+    /**
+     * SM4 加密。
+     * @param data 原始数据
+     * @param keyHex 十六进制密钥 (128位, 32个十六进制字符)
+     * @return Base64编码的加密字符串
+     */
+    public static String encryptSM4(String data, String keyHex) throws Exception {
+        SecretKeySpec secretKey = new SecretKeySpec(Hex.decode(keyHex), "SM4");
+        Cipher cipher = Cipher.getInstance("SM4/ECB/PKCS5Padding", BouncyCastleProvider.PROVIDER_NAME);
+        cipher.init(Cipher.ENCRYPT_MODE, secretKey);
+        byte[] encryptedBytes = cipher.doFinal(data.getBytes(StandardCharsets.UTF_8));
+        return Base64.getEncoder().encodeToString(encryptedBytes);
+    }
 
-        } catch (NoSuchAlgorithmException | java.security.NoSuchProviderException e) {
-            System.err.println("Error in SM4 test: " + e.getMessage());
-            e.printStackTrace();
+    /**
+     * SM4 解密。
+     * @param encryptedData Base64编码的加密数据
+     * @param keyHex 十六进制密钥 (128位, 32个十六进制字符)
+     * @return 原始数据
+     */
+    public static String decryptSM4(String encryptedData, String keyHex) throws Exception {
+        if (encryptedData == null) {
+            return null; // 如果输入为空，则直接返回null
         }
-
-        // Test SM2 Key Generation and Encryption/Decryption
-        try {
-            KeyPair sm2KeyPair = generateSM2KeyPair();
-            PublicKey sm2PublicKey = sm2KeyPair.getPublic();
-            PrivateKey sm2PrivateKey = sm2KeyPair.getPrivate();
-
-            String sm2PublicKeyHex = Hex.toHexString(sm2PublicKey.getEncoded());
-            String sm2PrivateKeyHex = Hex.toHexString(sm2PrivateKey.getEncoded());
-
-            System.out.println("\nGenerated SM2 Public Key (Hex): " + sm2PublicKeyHex);
-            System.out.println("SM2 Public Key Length (Hex): " + sm2PublicKeyHex.length());
-            System.out.println("Generated SM2 Private Key (Hex): " + sm2PrivateKeyHex);
-            System.out.println("SM2 Private Key Length (Hex): " + sm2PrivateKeyHex.length());
-
-            String originalDataSM2 = "This is a very confidential message for SM2.";
-            System.out.println("Original Data for SM2: " + originalDataSM2);
-
-            String encryptedSM2 = encryptSM2(originalDataSM2, sm2PublicKeyHex);
-            System.out.println("Encrypted SM2 (Hex): " + encryptedSM2);
-
-            String decryptedSM2 = decryptSM2(encryptedSM2, sm2PrivateKeyHex);
-            System.out.println("Decrypted SM2: " + decryptedSM2);
-
-        } catch (NoSuchAlgorithmException | java.security.spec.InvalidParameterSpecException | java.security.InvalidAlgorithmParameterException | java.security.NoSuchProviderException e) {
-            System.err.println("Error in SM2 test: " + e.getMessage());
-            e.printStackTrace();
+        if (keyHex == null || keyHex.isEmpty()) {
+            throw new IllegalArgumentException("SM4 key hex string cannot be null or empty");
         }
+        SecretKeySpec secretKey = new SecretKeySpec(Hex.decode(keyHex), "SM4");
+        Cipher cipher = Cipher.getInstance("SM4/ECB/PKCS5Padding", BouncyCastleProvider.PROVIDER_NAME);
+        cipher.init(Cipher.DECRYPT_MODE, secretKey);
+        byte[] originalBytes = cipher.doFinal(Base64.getDecoder().decode(encryptedData));
+        return new String(originalBytes, StandardCharsets.UTF_8);
+    }
+
+
+    /**
+     * 主方法，用于生成新的SM2密钥对并以十六进制格式打印。
+     */
+    public static void main(String[] args) throws Exception {
+        // 生成并打印 SM2 密钥对
+        KeyPair keyPair = generateSM2KeyPair();
+        PublicKey publicKey = keyPair.getPublic();
+        PrivateKey privateKey = keyPair.getPrivate();
+
+        String publicKeyHex = Hex.toHexString(publicKey.getEncoded());
+        String privateKeyHex = Hex.toHexString(privateKey.getEncoded());
+
+        System.out.println("--- Generated SM2 Key Pair (Hex Encoded) ---");
+        System.out.println("New SM2 Public Key (Hex):");
+        System.out.println(publicKeyHex);
+        System.out.println("\nNew SM2 Private Key (Hex):");
+        System.out.println(privateKeyHex);
+        System.out.println("\n--- Please update these keys in db.properties ---");
+        
+        // 生成一个随机的 SM4 密钥
+        byte[] sm4KeyBytes = new byte[16];
+        new SecureRandom().nextBytes(sm4KeyBytes);
+        String sm4KeyHex = Hex.toHexString(sm4KeyBytes);
+        System.out.println("\n--- Generated SM4 Key (Hex Encoded) ---");
+        System.out.println("New SM4 Key (Hex):");
+        System.out.println(sm4KeyHex);
+        System.out.println("\n--- Please update this key in db.properties ---");
     }
 }

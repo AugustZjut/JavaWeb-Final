@@ -1,7 +1,6 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/functions" prefix="fn" %>
 <%@ page import="com.example.webdemo.util.DataMaskingUtils" %>
 
 <html>
@@ -28,7 +27,7 @@
     </style>
 </head>
 <body>
-    <h1>公开预约列表</h1>
+    <h1>Public Appointment List</h1>
 
     <%-- Search/Filter Form (Placeholder for future implementation) --%>
     <%-- 
@@ -58,57 +57,30 @@
     <table>
         <thead>
             <tr>
-                <th>预约ID</th>
-                <th>校区</th>
-                <th>入校时间</th>
-                <th>申请人姓名</th>
-                <th>身份证号</th>
-                <th>联系电话</th>
-                <th>状态</th>
-                <th>创建时间</th>
-                <th>操作</th>
+                <th>ID</th>
+                <th>Campus</th>
+                <th>Appointment Time</th>
+                <th>Visitor Name</th>
+                <th>Visitor ID</th>
+                <th>Visitor Phone</th>
+                <th>Status</th>
+                <th>Created At</th>
+                <th>Actions</th>
             </tr>
         </thead>
         <tbody>
             <c:forEach var="app" items="${listAppointment}">
                 <tr>
-                    <td><c:out value="${app.appointmentId}"/></td>
-                    <td><c:out value="${app.campus}"/></td>
-                    <td><fmt:formatDate value="${app.entryDatetime}" pattern="yyyy-MM-dd HH:mm"/></td>
-                    <td>
-                        <c:choose>
-                            <c:when test="${not empty app.applicantName && not fn:contains(app.applicantName, '=')}">
-                                <c:out value="${DataMaskingUtils.maskName(app.applicantName)}"/>
-                            </c:when>
-                            <c:otherwise>
-                                <span title="解密失败">加密数据</span>
-                            </c:otherwise>
-                        </c:choose>
-                    </td>
-                    <td>
-                        <c:choose>
-                            <c:when test="${not empty app.applicantIdCard && not fn:contains(app.applicantIdCard, '=')}">
-                                <c:out value="${DataMaskingUtils.maskIdCard(app.applicantIdCard)}"/>
-                            </c:when>
-                            <c:otherwise>
-                                <span title="解密失败">加密数据</span>
-                            </c:otherwise>
-                        </c:choose>
-                    </td>
-                    <td>
-                        <c:choose>
-                            <c:when test="${not empty app.applicantPhone && not fn:contains(app.applicantPhone, '=')}">
-                                <c:out value="${DataMaskingUtils.maskPhoneNumber(app.applicantPhone)}"/>
-                            </c:when>
-                            <c:otherwise>
-                                <span title="解密失败">加密数据</span>
-                            </c:otherwise>
-                        </c:choose>
-                    </td>
+                    <td><c:out value="${app.id}"/></td>
+                    <td><c:out value="${app.campusArea}"/></td>
+                    <td><fmt:formatDate value="${app.appointmentTime}" pattern="yyyy-MM-dd HH:mm"/></td>
+                    <td><c:out value="${DataMaskingUtils.maskName(app.visitorName)}"/></td>
+                    <td><c:out value="${DataMaskingUtils.maskIdCard(app.visitorIdCard)}"/></td>
+                    <td><c:out value="${DataMaskingUtils.maskPhone(app.decryptedVisitorPhone)}"/></td> <%-- Assuming phone is decrypted in servlet or DAO for display --%>
                     <td><c:out value="${app.status}"/></td>
                     <td><fmt:formatDate value="${app.createdAt}" pattern="yyyy-MM-dd HH:mm:ss"/></td>
                     <td>
-                        <a href="${pageContext.request.contextPath}/admin/publicAppointments?action=view&id=${app.appointmentId}">查看</a>
+                        <%-- <a href="${pageContext.request.contextPath}/admin/publicAppointments?action=view&id=${app.id}">View</a> --%>
                         <%-- Add other actions like cancel if applicable for public auto-approved appointments --%>
                     </td>
                 </tr>

@@ -1,7 +1,6 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/functions" prefix="fn" %>
 <%@ page import="com.example.webdemo.util.DataMaskingUtils" %>
 
 <html>
@@ -32,7 +31,7 @@
     </style>
 </head>
 <body>
-    <h1>公务预约列表</h1>
+    <h1>Official Appointment List</h1>
 
     <%-- Search/Filter Form (Placeholder) --%>
 
@@ -46,66 +45,39 @@
     <table>
         <thead>
             <tr>
-                <th>预约ID</th>
-                <th>校区</th>
-                <th>入校时间</th>
-                <th>申请人姓名</th>
-                <th>身份证号</th>
-                <th>联系电话</th>
-                <th>被访部门</th>
-                <th>被访联系人</th>
-                <th>访问事由</th>
-                <th>状态</th>
-                <th>创建时间</th>
-                <th>操作</th>
+                <th>ID</th>
+                <th>Campus</th>
+                <th>Appointment Time</th>
+                <th>Visitor Name</th>
+                <th>Visitor ID</th>
+                <th>Visitor Phone</th>
+                <th>Visiting Department</th>
+                <th>Contact Person</th>
+                <th>Reason</th>
+                <th>Status</th>
+                <th>Created At</th>
+                <th>Actions</th>
             </tr>
         </thead>
         <tbody>
             <c:forEach var="app" items="${listAppointment}">
                 <tr>
-                    <td><c:out value="${app.appointmentId}"/></td>
-                    <td><c:out value="${app.campus}"/></td>
-                    <td><fmt:formatDate value="${app.entryDatetime}" pattern="yyyy-MM-dd HH:mm"/></td>
-                    <td>
-                        <c:choose>
-                            <c:when test="${not empty app.applicantName && not fn:contains(app.applicantName, '=')}">
-                                <c:out value="${DataMaskingUtils.maskName(app.applicantName)}"/>
-                            </c:when>
-                            <c:otherwise>
-                                <span title="解密失败">加密数据</span>
-                            </c:otherwise>
-                        </c:choose>
-                    </td>
-                    <td>
-                        <c:choose>
-                            <c:when test="${not empty app.applicantIdCard && not fn:contains(app.applicantIdCard, '=')}">
-                                <c:out value="${DataMaskingUtils.maskIdCard(app.applicantIdCard)}"/>
-                            </c:when>
-                            <c:otherwise>
-                                <span title="解密失败">加密数据</span>
-                            </c:otherwise>
-                        </c:choose>
-                    </td>
-                    <td>
-                        <c:choose>
-                            <c:when test="${not empty app.applicantPhone && not fn:contains(app.applicantPhone, '=')}">
-                                <c:out value="${DataMaskingUtils.maskPhoneNumber(app.applicantPhone)}"/>
-                            </c:when>
-                            <c:otherwise>
-                                <span title="解密失败">加密数据</span>
-                            </c:otherwise>
-                        </c:choose>
-                    </td>
-                    <td><c:out value="${app.officialVisitDepartmentId}"/></td>
-                    <td><c:out value="${app.officialVisitContactPerson}"/></td>
+                    <td><c:out value="${app.id}"/></td>
+                    <td><c:out value="${app.campusArea}"/></td>
+                    <td><fmt:formatDate value="${app.appointmentTime}" pattern="yyyy-MM-dd HH:mm"/></td>
+                    <td><c:out value="${DataMaskingUtils.maskName(app.visitorName)}"/></td>
+                    <td><c:out value="${DataMaskingUtils.maskIdCard(app.visitorIdCard)}"/></td>
+                    <td><c:out value="${DataMaskingUtils.maskPhone(app.decryptedVisitorPhone)}"/></td>
+                    <td><c:out value="${app.visitDepartment}"/></td>
+                    <td><c:out value="${app.visitContactPerson}"/></td>
                     <td><c:out value="${app.visitReason}"/></td>
                     <td>
                         <span class="status-${fn:toLowerCase(app.status)}"><c:out value="${app.status}"/></span>
                     </td>
                     <td><fmt:formatDate value="${app.createdAt}" pattern="yyyy-MM-dd HH:mm:ss"/></td>
                     <td>
-                        <c:if test="${app.status == 'PENDING_APPROVAL' || app.status == 'PENDING'}"> 
-                            <a href="${pageContext.request.contextPath}/admin/officialAppointmentManagement?action=approveView&id=${app.appointmentId}">审核/批准</a>
+                        <c:if test="${app.status == 'Pending' || app.status == 'Pending Approval'}"> 
+                            <a href="${pageContext.request.contextPath}/admin/officialAppointments?action=approveView&id=${app.id}">Review/Approve</a>
                         </c:if>
                         <%-- <a href="${pageContext.request.contextPath}/admin/officialAppointments?action=viewDetails&id=${app.id}">Details</a> --%>
                     </td>

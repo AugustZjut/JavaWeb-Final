@@ -10,27 +10,16 @@
 <%-- Auth Check --%>
 <% 
     User loggedInAdmin = (User) session.getAttribute("adminUser");
-    if (loggedInAdmin == null || (!"SCHOOL_ADMIN".equals(loggedInAdmin.getRole()) && !"SYSTEM_ADMIN".equals(loggedInAdmin.getRole()))) {
-        response.sendRedirect(request.getContextPath() + "/admin/adminLogin.jsp");
+    if (loggedInAdmin == null || (!"School Admin".equals(loggedInAdmin.getRole()) && !"System Admin".equals(loggedInAdmin.getRole()))) {
+        response.sendRedirect(request.getContextPath() + "/admin/login");
         return;
     }
-    
-    // 使用请求属性中的数据，而不是直接创建DAO
-    List<User> userList = (List<User>) request.getAttribute("userList");
-    List<Department> departmentList = (List<Department>) request.getAttribute("departmentList");
-    
-    // 如果数据为空（即不是从Servlet转发来的），则重定向到Servlet
-    if (userList == null) {
-        response.sendRedirect(request.getContextPath() + "/admin/userManagement");
-        return;
-    }
-    
-    // 创建部门ID到部门名称的映射
-    Map<Integer, String> departmentMap = null;
-    if (departmentList != null) {
-        departmentMap = departmentList.stream()
-                .collect(Collectors.toMap(Department::getDepartmentId, Department::getDepartmentName));
-    }
+    UserDAO userDAO = new UserDAO();
+    DepartmentDAO departmentDAO = new DepartmentDAO();
+    List<User> userList = userDAO.listAllUsers();
+    List<Department> departmentList = departmentDAO.getAllDepartments();
+    Map<Integer, String> departmentMap = departmentList.stream()
+            .collect(Collectors.toMap(Department::getDepartmentId, Department::getDepartmentName));
 %>
 
 <html>
@@ -134,11 +123,11 @@
                     <td><%= user.getUserId() %></td>
                     <td><%= user.getUsername() %></td>
                     <td><%= user.getFullName() %></td>
-                    <td><%= user.getDepartmentId() == null || user.getDepartmentId() == 0 ? "N/A" : departmentMap.getOrDefault(user.getDepartmentId(), "未知部门") %></td>
+                    <td><%= user.getDepartmentId() == 0 ? "N/A" : departmentMap.getOrDefault(user.getDepartmentId(), "未知部门") %></td>
                     <td><%= user.getPhoneNumber() %></td> <%-- TODO: Decrypt and mask --%>
                     <td><%= user.getRole() %></td>
-                    <td><%= user.getLockoutTime() != null && user.getLockoutTime().getTime() > System.currentTimeMillis() ? "已锁定" : "正常" %></td>
-                    <td><%= user.getUpdatedAt() != null ? user.getUpdatedAt().toString().substring(0, 19) : "-" %></td>
+                    <td><%= user.getAccountStatus() %></td>
+                    <td><%= user.getLastLoginTime() != null ? user.getLastLoginTime().toString().substring(0, 19) : "-" %></td>
                     <td class="action-links">
                         <a href="<%= request.getContextPath() %>/admin/userManagement?action=edit&id=<%= user.getUserId() %>">编辑</a>
                         <a href="<%= request.getContextPath() %>/admin/userManagement?action=delete&id=<%= user.getUserId() %>" 
