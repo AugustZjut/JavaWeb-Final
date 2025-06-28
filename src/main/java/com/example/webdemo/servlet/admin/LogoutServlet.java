@@ -20,7 +20,6 @@ import java.util.Date;
 /**
  * 处理管理员注销的Servlet
  */
-@WebServlet("/admin/logout")
 public class LogoutServlet extends HttpServlet {
     private static final long serialVersionUID = 1L;
     private static final Logger logger = LoggerFactory.getLogger(LogoutServlet.class);
@@ -55,10 +54,14 @@ public class LogoutServlet extends HttpServlet {
                 } catch (Exception e) {
                     logger.error("记录注销日志时出错", e);
                 }
+            } else {
+                logger.debug("未登录用户尝试注销，session存在但无adminUser");
             }
             
             // 销毁会话
             session.invalidate();
+        } else {
+            logger.debug("未登录用户尝试注销，session不存在");
         }
         
         // 重定向到登录页

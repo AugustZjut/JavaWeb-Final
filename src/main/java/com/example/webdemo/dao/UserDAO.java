@@ -128,7 +128,7 @@ public class UserDAO {
         if (user.getPasswordLastChanged() == null) {
             user.setPasswordLastChanged(new Timestamp(System.currentTimeMillis()));
         }
-        String sql = "INSERT INTO users (username, password_hash, full_name, department_id, phone_number, role, password_last_changed, failed_login_attempts, lockout_time) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        String sql = "INSERT INTO users (username, password_hash, full_name, department_id, phone_number, role, password_last_changed, failed_login_attempts, lockout_time, password_change_required, can_manage_public_appointments, can_manage_official_appointments) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         try (Connection conn = dataSource.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, user.getUsername());
@@ -148,6 +148,9 @@ public class UserDAO {
             pstmt.setTimestamp(7, user.getPasswordLastChanged());
             pstmt.setInt(8, 0); // Initial failed attempts
             pstmt.setNull(9, Types.TIMESTAMP); // Initial lockout time
+            pstmt.setBoolean(10, user.isPasswordChangeRequired());
+            pstmt.setBoolean(11, user.isCanManagePublicAppointments());
+            pstmt.setBoolean(12, user.isCanManageOfficialAppointments());
             
             return pstmt.executeUpdate() > 0;
         } catch (SQLException e) {
@@ -162,7 +165,7 @@ public class UserDAO {
     public boolean updateUser(User user) throws SQLException {
         // Note: Password update should be a separate method for security reasons.
         // This method does not update the password_hash, password_last_changed, failed_login_attempts, or lockout_time.
-        String sql = "UPDATE users SET full_name = ?, department_id = ?, phone_number = ?, role = ? WHERE user_id = ?";
+        String sql = "UPDATE users SET full_name = ?, department_id = ?, phone_number = ?, role = ?, password_change_required = ?, can_manage_public_appointments = ?, can_manage_official_appointments = ? WHERE user_id = ?";
         try (Connection conn = dataSource.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, user.getFullName());
@@ -177,7 +180,10 @@ public class UserDAO {
                 pstmt.setNull(3, Types.VARCHAR);
             }
             pstmt.setString(4, user.getRole());
-            pstmt.setInt(5, user.getUserId());
+            pstmt.setBoolean(5, user.isPasswordChangeRequired());
+            pstmt.setBoolean(6, user.isCanManagePublicAppointments());
+            pstmt.setBoolean(7, user.isCanManageOfficialAppointments());
+            pstmt.setInt(8, user.getUserId());
             return pstmt.executeUpdate() > 0;
         } catch (SQLException e) {
             e.printStackTrace();
@@ -223,12 +229,13 @@ public class UserDAO {
      * @return 是否更新成功
      */
     public boolean updateUserPassword(User user) throws SQLException {
-        String sql = "UPDATE users SET password_hash = ?, password_last_changed = ?, failed_login_attempts = 0, lockout_time = NULL WHERE user_id = ?";
+        String sql = "UPDATE users SET password_hash = ?, password_change_required = ?, password_last_changed = ?, failed_login_attempts = 0, lockout_time = NULL WHERE user_id = ?";
         try (Connection conn = dataSource.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, user.getPasswordHash());
-            pstmt.setTimestamp(2, user.getPasswordLastChanged());
-            pstmt.setInt(3, user.getUserId());
+            pstmt.setBoolean(2, user.isPasswordChangeRequired());
+            pstmt.setTimestamp(3, user.getPasswordLastChanged());
+            pstmt.setInt(4, user.getUserId());
             return pstmt.executeUpdate() > 0;
         } catch (SQLException e) {
             e.printStackTrace();
@@ -351,6 +358,90 @@ public class UserDAO {
         }
     }
 
+    public List<User> searchUsers(String username, String fullName, boolean exactNameMatch, 
+                                 Integer departmentId, String role, String accountStatus, String passwordStatus) throws SQLException {
+        List<User> users = new ArrayList<>();
+        StringBuilder sql = new StringBuilder("SELECT * FROM users WHERE 1=1");
+        List<Object> parameters = new ArrayList<>();
+
+        // 用户名精确查询
+        if (username != null && !username.trim().isEmpty()) {
+            sql.append(" AND username = ?");
+            parameters.add(username.trim());
+        }
+
+        // 姓名查询（精确或模糊）
+        if (fullName != null && !fullName.trim().isEmpty()) {
+            if (exactNameMatch) {
+                sql.append(" AND full_name = ?");
+                parameters.add(fullName.trim());
+            } else {
+                sql.append(" AND full_name LIKE ?");
+                parameters.add("%" + fullName.trim() + "%");
+            }
+        }
+
+        // 部门筛选
+        if (departmentId != null && departmentId > 0) {
+            sql.append(" AND department_id = ?");
+            parameters.add(departmentId);
+        }
+
+        // 角色筛选
+        if (role != null && !role.trim().isEmpty() && !"ALL".equals(role)) {
+            sql.append(" AND role = ?");
+            parameters.add(role.trim());
+        }
+
+        // 账号状态筛选
+        if (accountStatus != null && !accountStatus.trim().isEmpty() && !"ALL".equals(accountStatus)) {
+            switch (accountStatus) {
+                case "NORMAL":
+                    sql.append(" AND (lockout_time IS NULL OR lockout_time <= CURRENT_TIMESTAMP)");
+                    break;
+                case "LOCKED":
+                    sql.append(" AND lockout_time IS NOT NULL AND lockout_time > CURRENT_TIMESTAMP");
+                    break;
+            }
+        }
+
+        // 密码状态筛选
+        if (passwordStatus != null && !passwordStatus.trim().isEmpty() && !"ALL".equals(passwordStatus)) {
+            switch (passwordStatus) {
+                case "NORMAL":
+                    sql.append(" AND password_change_required = false");
+                    break;
+                case "CHANGE_REQUIRED":
+                    sql.append(" AND password_change_required = true");
+                    break;
+            }
+        }
+
+        sql.append(" ORDER BY username");
+
+        try (Connection conn = dataSource.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql.toString())) {
+            
+            // 设置参数
+            for (int i = 0; i < parameters.size(); i++) {
+                pstmt.setObject(i + 1, parameters.get(i));
+            }
+
+            try (ResultSet rs = pstmt.executeQuery()) {
+                while (rs.next()) {
+                    users.add(mapResultSetToUser(rs, true)); // Decrypt PII for display
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace(); 
+            throw e;
+        } catch (Exception e) { // Crypto exceptions
+            e.printStackTrace();
+            throw new SQLException("Decryption/mapping failed while searching users.", e);
+        }
+        return users;
+    }
+
     private User mapResultSetToUser(ResultSet rs, boolean decryptPII) throws SQLException, NoSuchAlgorithmException, InvalidKeySpecException, NoSuchProviderException, IOException {
         User user = new User();
         user.setUserId(rs.getInt("user_id"));
@@ -359,6 +450,15 @@ public class UserDAO {
         user.setFullName(rs.getString("full_name"));
         int deptId = rs.getInt("department_id");
         user.setDepartmentId(rs.wasNull() ? null : deptId);
+        user.setRole(rs.getString("role"));
+        user.setPasswordLastChanged(rs.getTimestamp("password_last_changed"));
+        user.setFailedLoginAttempts(rs.getInt("failed_login_attempts"));
+        user.setLockoutTime(rs.getTimestamp("lockout_time"));
+        user.setPasswordChangeRequired(rs.getBoolean("password_change_required"));
+        user.setCanManagePublicAppointments(rs.getBoolean("can_manage_public_appointments"));
+        user.setCanManageOfficialAppointments(rs.getBoolean("can_manage_official_appointments"));
+
+        // Decrypt phone number if requested and available
         String encryptedPhone = rs.getString("phone_number");
         if (decryptPII && encryptedPhone != null && !encryptedPhone.isEmpty() && sm4KeyHex != null && !sm4KeyHex.startsWith("YOUR")) {
             try {
@@ -371,11 +471,6 @@ public class UserDAO {
             user.setPhoneNumber(encryptedPhone); // Store raw encrypted or null, or if key is missing
         }
 
-        user.setRole(rs.getString("role"));
-        user.setPasswordLastChanged(rs.getTimestamp("password_last_changed"));
-        user.setFailedLoginAttempts(rs.getInt("failed_login_attempts"));
-        user.setLockoutTime(rs.getTimestamp("lockout_time"));
-        user.setPasswordChangeRequired(rs.getBoolean("password_change_required"));
         return user;
     }
 }

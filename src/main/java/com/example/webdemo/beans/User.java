@@ -31,6 +31,10 @@ public class User {
     private Timestamp updatedAt;
     // 是否需要强制修改密码（TRUE: 是, FALSE: 否）
     private boolean passwordChangeRequired;
+    // 是否有权限管理公众预约
+    private boolean canManagePublicAppointments;
+    // 是否有权限管理公务预约
+    private boolean canManageOfficialAppointments;
 
     public User() {
     }
@@ -75,6 +79,19 @@ public class User {
 
     public boolean isPasswordChangeRequired() { return passwordChangeRequired; }
     public void setPasswordChangeRequired(boolean passwordChangeRequired) { this.passwordChangeRequired = passwordChangeRequired; }
+
+    public boolean isCanManagePublicAppointments() { return canManagePublicAppointments; }
+    public void setCanManagePublicAppointments(boolean canManagePublicAppointments) {
+        this.canManagePublicAppointments = canManagePublicAppointments;
+    }
+
+    public boolean isCanManageOfficialAppointments() {
+        return canManageOfficialAppointments;
+    }
+
+    public void setCanManageOfficialAppointments(boolean canManageOfficialAppointments) {
+        this.canManageOfficialAppointments = canManageOfficialAppointments;
+    }
 
     @Override
     public String toString() {

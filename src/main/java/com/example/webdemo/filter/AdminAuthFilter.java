@@ -60,11 +60,12 @@ public class AdminAuthFilter implements Filter {
 
         logger.debug("处理请求: {}, 应用内路径: {}", requestURI, pathWithinApp);
 
-        // 允许访问登录页面和静态资源
-        if (pathWithinApp.endsWith("/admin/adminLogin.jsp") || pathWithinApp.endsWith("/adminLoginServlet") || 
+        // 允许访问登录页面、退出登录和静态资源
+        if (pathWithinApp.endsWith("/admin/adminLogin.jsp") || pathWithinApp.endsWith("/adminLoginServlet") ||
+            pathWithinApp.endsWith("/admin/logout") ||
             pathWithinApp.startsWith("/css/") || 
             pathWithinApp.startsWith("/js/")) {
-            logger.debug("允许访问登录页面或静态资源: {}", pathWithinApp);
+            logger.debug("允许访问登录页面、退出登录或静态资源: {}", pathWithinApp);
             chain.doFilter(request, response);
             return;
         }

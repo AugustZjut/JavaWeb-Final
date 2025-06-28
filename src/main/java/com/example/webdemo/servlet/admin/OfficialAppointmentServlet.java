@@ -20,7 +20,7 @@ import java.sql.SQLException;
 import java.util.Date;
 import java.util.List;
 
-@WebServlet("/admin/officialAppointmentManagement")
+// @WebServlet("/admin/officialAppointments") // Configured in web.xml
 public class OfficialAppointmentServlet extends HttpServlet {
     private static final long serialVersionUID = 1L;
     private static final Logger logger = LoggerFactory.getLogger(OfficialAppointmentServlet.class);
@@ -99,77 +99,95 @@ public class OfficialAppointmentServlet extends HttpServlet {
     }
 
     private void showApproveForm(HttpServletRequest request, HttpServletResponse response) throws SQLException, ServletException, IOException {
-        String appointmentId = request.getParameter("id");
-        if (appointmentId == null || appointmentId.trim().isEmpty()) {
+        String appointmentIdStr = request.getParameter("id");
+        if (appointmentIdStr == null || appointmentIdStr.trim().isEmpty()) {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Appointment ID is required for approval view.");
             return;
         }
-        // appointmentId已经是String类型
-        Appointment appointment = appointmentDAO.getAppointmentById(appointmentId); 
-        if (appointment == null) {
-            response.sendError(HttpServletResponse.SC_NOT_FOUND, "Appointment not found.");
+        
+        try {
+            int appointmentId = Integer.parseInt(appointmentIdStr);
+            Appointment appointment = appointmentDAO.getAppointmentById(appointmentId);
+            if (appointment == null) {
+                response.sendError(HttpServletResponse.SC_NOT_FOUND, "Appointment not found.");
+                return;
+            }
+            request.setAttribute("appointment", appointment);
+            request.getRequestDispatcher("/admin/officialAppointmentApprovalForm.jsp").forward(request, response);
+        } catch (NumberFormatException e) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid appointment ID format.");
             return;
         }
-        request.setAttribute("appointment", appointment);
-        request.getRequestDispatcher("/admin/officialAppointmentApprovalForm.jsp").forward(request, response);
     }
 
     private void approveAppointment(HttpServletRequest request, HttpServletResponse response, User currentUser) throws SQLException, IOException {
-        String appointmentId = request.getParameter("appointmentId");
+        String appointmentIdStr = request.getParameter("appointmentId");
         // Potentially add approval comments/notes from form
         // String approvalNotes = request.getParameter("approvalNotes"); 
 
-        if (appointmentId == null || appointmentId.trim().isEmpty()) {
+        if (appointmentIdStr == null || appointmentIdStr.trim().isEmpty()) {
             response.sendRedirect(request.getContextPath() + "/admin/officialAppointments?action=list&error=InvalidAppointmentId");
             return;
         }
 
-        // appointmentId已经是String类型，Status需要传入String值
-        boolean success = appointmentDAO.updateAppointmentStatus(appointmentId, Appointment.Status.APPROVED); 
-        if (success) {
-            AuditLog log = new AuditLog();
-            log.setUserId(currentUser.getUserId()); // Corrected: getUserId()
-            log.setUsername(currentUser.getUsername());
-            log.setActionType("OFFICIAL_APPOINTMENT_APPROVE");
-            // 修复方法名: setActionDetails -> setDetails
-            log.setDetails("Approved official appointment ID: " + appointmentId + " by user " + currentUser.getUsername());
-            // 修复方法名: setActionTime -> setLogTimestamp
-            log.setLogTimestamp(new java.sql.Timestamp(new Date().getTime()));
-            // 修复方法名: setClientIp -> setIpAddress
-            log.setIpAddress(request.getRemoteAddr());
-            auditLogDAO.createLog(log); // Corrected: use createLog with AuditLog object
-            response.sendRedirect(request.getContextPath() + "/admin/officialAppointments?action=list&message=AppointmentApproved");
-        } else {
-            response.sendRedirect(request.getContextPath() + "/admin/officialAppointments?action=list&error=ApprovalFailed");
+        try {
+            int appointmentId = Integer.parseInt(appointmentIdStr);
+            // appointmentId转换为int类型，Status需要传入String值
+            boolean success = appointmentDAO.updateAppointmentStatus(appointmentId, Appointment.Status.APPROVED);
+            if (success) {
+                AuditLog log = new AuditLog();
+                log.setUserId(currentUser.getUserId()); // Corrected: getUserId()
+                log.setUsername(currentUser.getUsername());
+                log.setActionType("OFFICIAL_APPOINTMENT_APPROVE");
+                // 修复方法名: setActionDetails -> setDetails
+                log.setDetails("Approved official appointment ID: " + appointmentId + " by user " + currentUser.getUsername());
+                // 修复方法名: setActionTime -> setLogTimestamp
+                log.setLogTimestamp(new java.sql.Timestamp(new Date().getTime()));
+                // 修复方法名: setClientIp -> setIpAddress
+                log.setIpAddress(request.getRemoteAddr());
+                auditLogDAO.createLog(log); // Corrected: use createLog with AuditLog object
+                response.sendRedirect(request.getContextPath() + "/admin/officialAppointments?action=list&message=AppointmentApproved");
+            } else {
+                response.sendRedirect(request.getContextPath() + "/admin/officialAppointments?action=list&error=ApprovalFailed");
+            }
+        } catch (NumberFormatException e) {
+            response.sendRedirect(request.getContextPath() + "/admin/officialAppointments?action=list&error=InvalidAppointmentId");
+            return;
         }
     }
 
     private void rejectAppointment(HttpServletRequest request, HttpServletResponse response, User currentUser) throws SQLException, IOException {
-        String appointmentId = request.getParameter("appointmentId");
+        String appointmentIdStr = request.getParameter("appointmentId");
         // String rejectionReason = request.getParameter("rejectionReason"); // Important to capture this
 
-        if (appointmentId == null || appointmentId.trim().isEmpty()) {
+        if (appointmentIdStr == null || appointmentIdStr.trim().isEmpty()) {
             response.sendRedirect(request.getContextPath() + "/admin/officialAppointments?action=list&error=InvalidAppointmentId");
             return;
         }
 
-        // appointmentId已经是String类型，Status需要传入String值
-        boolean success = appointmentDAO.updateAppointmentStatus(appointmentId, Appointment.Status.REJECTED);
-        if (success) {
-            AuditLog log = new AuditLog();
-            log.setUserId(currentUser.getUserId()); // Corrected: getUserId()
-            log.setUsername(currentUser.getUsername());
-            log.setActionType("OFFICIAL_APPOINTMENT_REJECT");
-            // 修复方法名: setActionDetails -> setDetails
-            log.setDetails("Rejected official appointment ID: " + appointmentId + " by user " + currentUser.getUsername());
-            // 修复方法名: setActionTime -> setLogTimestamp 
-            log.setLogTimestamp(new java.sql.Timestamp(new Date().getTime()));
-            // 修复方法名: setClientIp -> setIpAddress
-            log.setIpAddress(request.getRemoteAddr());
-            auditLogDAO.createLog(log); // Corrected: use createLog with AuditLog object
-            response.sendRedirect(request.getContextPath() + "/admin/officialAppointments?action=list&message=AppointmentRejected");
-        } else {
-            response.sendRedirect(request.getContextPath() + "/admin/officialAppointments?action=list&error=RejectionFailed");
+        try {
+            int appointmentId = Integer.parseInt(appointmentIdStr);
+            // appointmentId转换为int类型，Status需要传入String值
+            boolean success = appointmentDAO.updateAppointmentStatus(appointmentId, Appointment.Status.REJECTED);
+            if (success) {
+                AuditLog log = new AuditLog();
+                log.setUserId(currentUser.getUserId()); // Corrected: getUserId()
+                log.setUsername(currentUser.getUsername());
+                log.setActionType("OFFICIAL_APPOINTMENT_REJECT");
+                // 修复方法名: setActionDetails -> setDetails
+                log.setDetails("Rejected official appointment ID: " + appointmentId + " by user " + currentUser.getUsername());
+                // 修复方法名: setActionTime -> setLogTimestamp 
+                log.setLogTimestamp(new java.sql.Timestamp(new Date().getTime()));
+                // 修复方法名: setClientIp -> setIpAddress
+                log.setIpAddress(request.getRemoteAddr());
+                auditLogDAO.createLog(log); // Corrected: use createLog with AuditLog object
+                response.sendRedirect(request.getContextPath() + "/admin/officialAppointments?action=list&message=AppointmentRejected");
+            } else {
+                response.sendRedirect(request.getContextPath() + "/admin/officialAppointments?action=list&error=RejectionFailed");
+            }
+        } catch (NumberFormatException e) {
+            response.sendRedirect(request.getContextPath() + "/admin/officialAppointments?action=list&error=InvalidAppointmentId");
+            return;
         }
     }
 }

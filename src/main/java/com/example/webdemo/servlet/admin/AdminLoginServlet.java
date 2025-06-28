@@ -10,7 +10,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import jakarta.servlet.ServletException;
-import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -21,7 +20,6 @@ import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.util.Date;
 
-@WebServlet("/adminLoginServlet")
 public class AdminLoginServlet extends HttpServlet {
     private static final long serialVersionUID = 1L;
     private static final Logger logger = LoggerFactory.getLogger(AdminLoginServlet.class);
@@ -110,8 +108,16 @@ public class AdminLoginServlet extends HttpServlet {
                     auditLogDAO.createLog(log); 
                     logger.debug("Audit log created for successful login of user: {}", loginName);
 
-                    // 修改为使用上下文路径的绝对路径
-                    response.sendRedirect(request.getContextPath() + "/admin/dashboard.jsp");
+                    // 检查是否需要强制修改密码
+                    if (user.isPasswordChangeRequired()) {
+                        logger.info("User {} requires password change. Redirecting to change password page.", loginName);
+                        // 重定向到修改密码页面，并标记为强制修改
+                        session.setAttribute("forcePasswordChange", true);
+                        response.sendRedirect(request.getContextPath() + "/admin/userManagement?action=myAccount&forcePasswordChange=true");
+                    } else {
+                        // 正常跳转到控制台
+                        response.sendRedirect(request.getContextPath() + "/admin/dashboard.jsp");
+                    }
                 } else {
                     // Login failed
                     logger.warn("Password mismatch for user: {}", loginName);

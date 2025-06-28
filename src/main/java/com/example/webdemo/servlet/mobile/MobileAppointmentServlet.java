@@ -2,7 +2,9 @@ package com.example.webdemo.servlet.mobile;
 
 import com.example.webdemo.beans.AccompanyingPerson;
 import com.example.webdemo.beans.Appointment;
+import com.example.webdemo.beans.Department;
 import com.example.webdemo.dao.AppointmentDAO;
+import com.example.webdemo.dao.DepartmentDAO;
 import com.example.webdemo.dao.UserDAO; 
 import com.example.webdemo.util.CryptoUtils;
 import com.example.webdemo.util.DBUtils;
@@ -121,7 +123,7 @@ public class MobileAppointmentServlet extends HttpServlet {
         appointment.setApplicationDate(new Timestamp(System.currentTimeMillis())); 
 
         // 如果是公务预约
-        if (Appointment.AppointmentType.OFFICIAL.equals(appointmentType)) {
+        if ("OFFICIAL_VISIT".equals(appointmentTypeStr)) {
             if (visitDepartmentStr == null || visitDepartmentStr.trim().isEmpty() ||
                 contactPersonName == null || contactPersonName.trim().isEmpty() ||
                 visitReason == null || visitReason.trim().isEmpty()) {
@@ -130,23 +132,59 @@ public class MobileAppointmentServlet extends HttpServlet {
                 return;
             }
             
-            // 类型转换: String转为Integer (如果visitDepartmentStr是部门ID)
+            // 获取部门ID
             Integer officialVisitDepartmentId = null;
             try {
-                officialVisitDepartmentId = Integer.parseInt(visitDepartmentStr);
+                if (visitDepartmentStr.matches("\\d+")) {
+                    // 如果是纯数字，直接当作部门ID
+                    officialVisitDepartmentId = Integer.parseInt(visitDepartmentStr);
+                    
+                    // 验证此ID是否存在
+                    DepartmentDAO departmentDAO = new DepartmentDAO();
+                    if (departmentDAO.getDepartmentById(officialVisitDepartmentId) == null) {
+                        request.setAttribute("errorMessage", "无效的部门ID，请从列表中选择有效的部门");
+                        request.getRequestDispatcher("/mobile/makeAppointment.jsp").forward(request, response);
+                        return;
+                    }
+                } else {
+                    // 尝试根据部门名称查询部门ID
+                    DepartmentDAO departmentDAO = new DepartmentDAO();
+                    List<Department> matchingDepartments = departmentDAO.searchDepartments(null, visitDepartmentStr, null);
+                    
+                    if (matchingDepartments.isEmpty()) {
+                        request.setAttribute("errorMessage", "找不到名称为 '" + visitDepartmentStr + "' 的部门，请从列表中选择有效的部门");
+                        request.getRequestDispatcher("/mobile/makeAppointment.jsp").forward(request, response);
+                        return;
+                    } else if (matchingDepartments.size() > 1) {
+                        request.setAttribute("errorMessage", "找到多个匹配的部门，请具体指定部门名称或选择部门ID");
+                        request.getRequestDispatcher("/mobile/makeAppointment.jsp").forward(request, response);
+                        return;
+                    } else {
+                        // 只找到一个匹配的部门，使用它的ID
+                        officialVisitDepartmentId = matchingDepartments.get(0).getDepartmentId();
+                    }
+                }
             } catch (NumberFormatException e) {
-                request.setAttribute("errorMessage", "部门ID格式无效.");
+                request.setAttribute("errorMessage", "部门ID格式无效");
+                request.getRequestDispatcher("/mobile/makeAppointment.jsp").forward(request, response);
+                return;
+            } catch (SQLException e) {
+                request.setAttribute("errorMessage", "查询部门信息时发生数据库错误: " + e.getMessage());
                 request.getRequestDispatcher("/mobile/makeAppointment.jsp").forward(request, response);
                 return;
             }
             
+            appointment.setAppointmentType(Appointment.AppointmentType.OFFICIAL);  // 设置为公务预约
             appointment.setOfficialVisitDepartmentId(officialVisitDepartmentId);
             appointment.setOfficialVisitContactPerson(contactPersonName.trim());
             appointment.setVisitReason(visitReason.trim());
-            appointment.setStatus(Appointment.Status.PENDING_APPROVAL);
+            appointment.setStatus(Appointment.Status.PENDING_APPROVAL);  // 公务预约需审批
+            System.out.println("创建公务预约，状态: " + Appointment.Status.PENDING_APPROVAL);
         } else {
             // 社会公众预约自动批准
-            appointment.setStatus(Appointment.Status.APPROVED);
+            appointment.setAppointmentType(Appointment.AppointmentType.PUBLIC);  // 设置为公众预约
+            appointment.setStatus(Appointment.Status.APPROVED);  // 自动批准
+            System.out.println("创建公众预约，状态: " + Appointment.Status.APPROVED);
         }
 
         List<AccompanyingPerson> accompanyingPersons = new ArrayList<>();

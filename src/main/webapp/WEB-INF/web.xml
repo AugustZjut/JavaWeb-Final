@@ -2,28 +2,20 @@
 <web-app xmlns="http://xmlns.jcp.org/xml/ns/javaee"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://xmlns.jcp.org/xml/ns/javaee http://xmlns.jcp.org/xml/ns/javaee/web-app_4_0.xsd"
-         version="4.0">
+         version="4.0"
+         metadata-complete="false">
 
     <display-name>Campus Access Pass System</display-name>
 
     <!-- Servlet Registration -->
-    <!-- <servlet>
+    <servlet>
         <servlet-name>AdminLoginServlet</servlet-name>
         <servlet-class>com.example.webdemo.servlet.admin.AdminLoginServlet</servlet-class>
     </servlet>
     <servlet-mapping>
         <servlet-name>AdminLoginServlet</servlet-name>
-        <url-pattern>/admin/login</url-pattern>
-    </servlet-mapping> -->
-
-    <!-- <servlet>
-        <servlet-name>UserManagementServlet</servlet-name>
-        <servlet-class>com.example.webdemo.servlet.admin.UserManagementServlet</servlet-class>
-    </servlet>
-    <servlet-mapping>
-        <servlet-name>UserManagementServlet</servlet-name>
-        <url-pattern>/admin/users</url-pattern>
-    </servlet-mapping> -->
+        <url-pattern>/adminLoginServlet</url-pattern>
+    </servlet-mapping>
 
     <servlet>
         <servlet-name>DepartmentManagementServlet</servlet-name>
@@ -43,40 +35,46 @@
         <url-pattern>/mobile/makeAppointment</url-pattern>
     </servlet-mapping>
 
-    <!-- <servlet>
-        <servlet-name>MyAppointmentServlet</servlet-name>
-        <servlet-class>com.example.webdemo.servlet.mobile.MyAppointmentServlet</servlet-class>
-    </servlet>
-    <servlet-mapping>
-        <servlet-name>MyAppointmentServlet</servlet-name>
-        <url-pattern>/mobile/myAppointments</url-pattern>
-    </servlet-mapping> -->
-
-    <!-- <servlet>
+    <!-- MyAppointmentServlet已经在Java中通过注解注册，无需在此配置 -->
+    
+    <servlet>
         <servlet-name>ViewPassServlet</servlet-name>
         <servlet-class>com.example.webdemo.servlet.mobile.ViewPassServlet</servlet-class>
     </servlet>
     <servlet-mapping>
         <servlet-name>ViewPassServlet</servlet-name>
         <url-pattern>/mobile/viewPass</url-pattern>
-    </servlet-mapping> -->
+    </servlet-mapping>
 
     <servlet>
-        <servlet-name>PublicAppointmentServlet</servlet-name>
-        <servlet-class>com.example.webdemo.servlet.admin.PublicAppointmentServlet</servlet-class>
+        <servlet-name>OfficialAppointmentManagementServlet</servlet-name>
+        <servlet-class>com.example.webdemo.servlet.admin.OfficialAppointmentManagementServlet</servlet-class>
     </servlet>
     <servlet-mapping>
-        <servlet-name>PublicAppointmentServlet</servlet-name>
+        <servlet-name>OfficialAppointmentManagementServlet</servlet-name>
+        <url-pattern>/admin/officialAppointmentManagement</url-pattern>
+    </servlet-mapping>
+
+    <servlet>
+        <servlet-name>PublicAppointmentManagementServlet</servlet-name>
+        <servlet-class>com.example.webdemo.servlet.admin.PublicAppointmentManagementServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>PublicAppointmentManagementServlet</servlet-name>
+        <url-pattern>/admin/publicAppointmentManagement</url-pattern>
+    </servlet-mapping>
+    <servlet-mapping>
+        <servlet-name>PublicAppointmentManagementServlet</servlet-name>
         <url-pattern>/admin/publicAppointments</url-pattern>
     </servlet-mapping>
 
     <servlet>
-        <servlet-name>OfficialAppointmentServlet</servlet-name>
-        <servlet-class>com.example.webdemo.servlet.admin.OfficialAppointmentServlet</servlet-class>
+        <servlet-name>LogoutServlet</servlet-name>
+        <servlet-class>com.example.webdemo.servlet.admin.LogoutServlet</servlet-class>
     </servlet>
     <servlet-mapping>
-        <servlet-name>OfficialAppointmentServlet</servlet-name>
-        <url-pattern>/admin/officialAppointments</url-pattern>
+        <servlet-name>LogoutServlet</servlet-name>
+        <url-pattern>/admin/logout</url-pattern>
     </servlet-mapping>
 
     <!-- Filter Registration -->

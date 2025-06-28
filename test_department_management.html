@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>部门管理功能测试指南</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 20px auto; padding: 20px; }
+        h1, h2 { color: #333; }
+        .test-section { background: #f8f9fa; padding: 15px; border-radius: 5px; margin: 15px 0; }
+        .step { margin: 10px 0; padding: 10px; background: white; border-left: 4px solid #007bff; }
+        .note { background: #fff3cd; color: #856404; padding: 10px; border-radius: 4px; margin: 10px 0; }
+        .success { background: #d4edda; color: #155724; padding: 10px; border-radius: 4px; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <h1>部门管理功能测试指南</h1>
+    
+    <div class="note">
+        <strong>注意：</strong>测试前请确保已部署项目并使用系统管理员或学校管理员账户登录。
+    </div>
+
+    <div class="test-section">
+        <h2>1. 权限验证测试</h2>
+        <div class="step">
+            <strong>步骤1：</strong>使用部门管理员或审计管理员账户尝试访问
+            <br><code>http://localhost:8080/webdemo/admin/departments</code>
+            <br><strong>预期结果：</strong>应跳转到登录页面或显示权限错误
+        </div>
+        <div class="step">
+            <strong>步骤2：</strong>使用系统管理员或学校管理员账户登录
+            <br><strong>预期结果：</strong>能够正常访问部门管理页面
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>2. 部门列表查看测试</h2>
+        <div class="step">
+            <strong>步骤1：</strong>访问部门管理页面
+            <br><strong>预期结果：</strong>显示所有部门列表，包含ID、代码、类型（中文显示）、名称
+        </div>
+        <div class="step">
+            <strong>步骤2：</strong>检查搜索表单是否显示
+            <br><strong>预期结果：</strong>页面包含部门代码、名称和类型的搜索表单
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>3. 添加部门测试</h2>
+        <div class="step">
+            <strong>步骤1：</strong>点击"添加新部门"按钮
+            <br><strong>预期结果：</strong>跳转到部门添加表单页面
+        </div>
+        <div class="step">
+            <strong>步骤2：</strong>填写部门信息
+            <br>• 部门代码：TEST001
+            <br>• 部门类型：行政部门
+            <br>• 部门名称：测试行政部门
+            <br><strong>预期结果：</strong>成功创建部门并返回列表页面，显示成功消息
+        </div>
+        <div class="step">
+            <strong>步骤3：</strong>尝试使用相同代码创建部门
+            <br><strong>预期结果：</strong>显示错误消息"部门代码已存在"
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>4. 编辑部门测试</h2>
+        <div class="step">
+            <strong>步骤1：</strong>点击某个部门的"编辑"链接
+            <br><strong>预期结果：</strong>跳转到编辑表单，表单中预填充该部门的信息
+        </div>
+        <div class="step">
+            <strong>步骤2：</strong>修改部门名称并保存
+            <br><strong>预期结果：</strong>成功更新部门信息并返回列表页面
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>5. 搜索部门测试</h2>
+        <div class="step">
+            <strong>步骤1：</strong>在搜索表单中输入部门代码进行搜索
+            <br><strong>预期结果：</strong>显示匹配的部门记录
+        </div>
+        <div class="step">
+            <strong>步骤2：</strong>按部门类型筛选
+            <br><strong>预期结果：</strong>只显示指定类型的部门
+        </div>
+        <div class="step">
+            <strong>步骤3：</strong>点击"重置"按钮
+            <br><strong>预期结果：</strong>清空搜索条件，显示所有部门
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>6. 删除部门测试</h2>
+        <div class="step">
+            <strong>步骤1：</strong>点击某个未被使用部门的"删除"链接
+            <br><strong>预期结果：</strong>显示确认对话框
+        </div>
+        <div class="step">
+            <strong>步骤2：</strong>确认删除
+            <br><strong>预期结果：</strong>成功删除部门并显示成功消息
+        </div>
+        <div class="step">
+            <strong>步骤3：</strong>尝试删除有用户关联的部门
+            <br><strong>预期结果：</strong>显示错误消息，无法删除
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>7. 数据库约束测试</h2>
+        <div class="step">
+            <strong>测试1：</strong>尝试创建空字段的部门
+            <br><strong>预期结果：</strong>前端验证阻止提交或后端返回验证错误
+        </div>
+        <div class="step">
+            <strong>测试2：</strong>尝试创建无效部门类型
+            <br><strong>预期结果：</strong>数据库约束阻止创建，返回错误消息
+        </div>
+    </div>
+
+    <div class="success">
+        <strong>功能完成度检查：</strong>
+        <ul>
+            <li>✓ 权限控制（仅系统管理员和学校管理员可访问）</li>
+            <li>✓ 部门信息的增删改查</li>
+            <li>✓ 部门搜索功能</li>
+            <li>✓ 部门类型中文显示</li>
+            <li>✓ 数据验证和错误处理</li>
+            <li>✓ 审计日志记录</li>
+            <li>✓ 统一的UI风格</li>
+            <li>✓ 响应式布局</li>
+        </ul>
+    </div>
+
+    <div class="note">
+        <strong>提示：</strong>
+        <ul>
+            <li>所有操作都会记录到审计日志中</li>
+            <li>部门类型限制为：行政部门、直属部门、学院</li>
+            <li>部门代码必须唯一</li>
+            <li>删除部门前请确保没有用户关联到该部门</li>
+        </ul>
+    </div>
+</body>
+</html>

@@ -28,9 +28,27 @@
     <div class="container">
         <h2>查询我的预约</h2>
         <form action="${pageContext.request.contextPath}/mobile/myAppointments" method="GET">
-            <label for="applicantIdCard">请输入您的身份证号查询:</label>
-            <input type="text" id="applicantIdCard" name="applicantIdCard" value="<c:out value='${param.applicantIdCard}'/>" required maxlength="18">
-            <input type="submit" value="查询">
+            <div style="display: flex; flex-wrap: wrap; gap: 10px;">
+                <div style="flex: 1; min-width: 200px;">
+                    <label for="applicantName">姓名:</label>
+                    <input type="text" id="applicantName" name="applicantName" value="<c:out value='${param.applicantName}'/>" maxlength="50">
+                </div>
+                <div style="flex: 1; min-width: 200px;">
+                    <label for="applicantIdCard">身份证号:</label>
+                    <input type="text" id="applicantIdCard" name="applicantIdCard" value="<c:out value='${param.applicantIdCard}'/>" maxlength="18">
+                </div>
+                <div style="flex: 1; min-width: 200px;">
+                    <label for="applicantPhone">手机号:</label>
+                    <input type="text" id="applicantPhone" name="applicantPhone" value="<c:out value='${param.applicantPhone}'/>" maxlength="11">
+                </div>
+            </div>
+            <div style="margin-top: 15px;">
+                <input type="submit" value="查询" style="margin-right: 10px;">
+                <a href="${pageContext.request.contextPath}/mobile/makeAppointment.jsp" style="display: inline-block; background-color: #007bff; color: white; padding: 10px 20px; border-radius: 4px; text-decoration: none;">我要预约</a>
+            </div>
+            <div style="margin-top: 10px; font-size: 0.9em; color: #666;">
+                提示: 至少需要输入一项查询条件(姓名、身份证号或手机号)
+            </div>
         </form>
 
         <c:if test="${not empty errorMessage}">
@@ -57,18 +75,17 @@
                             <td><c:out value="${app.appointmentId}"/></td>
                             <td>
                                 <c:choose>
-                                    <c:when test="${app.campus eq 'MAIN_CAMPUS'}">主校区</c:when>
-                                    <c:when test="${app.campus eq 'NORTH_CAMPUS'}">北校区</c:when>
-                                    <c:when test="${app.campus eq 'SOUTH_CAMPUS'}">南校区</c:when>
-                                    <c:when test="${app.campus eq 'EAST_CAMPUS'}">东校区</c:when>
+                                    <c:when test="${app.campus eq 'MAIN_CAMPUS' || app.campus eq '朝晖校区'}">朝晖校区</c:when>
+                                    <c:when test="${app.campus eq 'NORTH_CAMPUS' || app.campus eq '屏峰校区'}">屏峰校区</c:when>
+                                    <c:when test="${app.campus eq 'SOUTH_CAMPUS' || app.campus eq '莫干山校区'}">莫干山校区</c:when>
                                     <c:otherwise><c:out value="${app.campus}"/></c:otherwise>
                                 </c:choose>
                             </td>
-                            <td><fmt:formatDate value="${app.appointmentTime}" pattern="yyyy-MM-dd HH:mm"/></td>
+                            <td><fmt:formatDate value="${app.entryDatetime}" pattern="yyyy-MM-dd HH:mm"/></td>
                             <td>
                                 <c:choose>
-                                    <c:when test="${app.appointmentType eq 'PUBLIC_ACCESS'}">公开活动/个人参观</c:when>
-                                    <c:when test="${app.appointmentType eq 'OFFICIAL_VISIT'}">公务来访</c:when>
+                                    <c:when test="${app.appointmentType eq 'PUBLIC_ACCESS' || app.appointmentType eq 'PUBLIC'}">公开活动/个人参观</c:when>
+                                    <c:when test="${app.appointmentType eq 'OFFICIAL_VISIT' || app.appointmentType eq 'OFFICIAL'}">公务来访</c:when>
                                     <c:otherwise><c:out value="${app.appointmentType}"/></c:otherwise>
                                 </c:choose>
                             </td>
@@ -83,10 +100,13 @@
                                     <c:otherwise><c:out value="${app.status}"/></c:otherwise>
                                 </c:choose>
                             </td>
-                            <td><fmt:formatDate value="${app.submissionTime}" pattern="yyyy-MM-dd HH:mm:ss"/></td>
+                            <td><fmt:formatDate value="${app.applicationDate}" pattern="yyyy-MM-dd HH:mm:ss"/></td>
                             <td>
                                 <c:if test="${app.status eq 'APPROVED'}">
-                                    <a href="${pageContext.request.contextPath}/mobile/viewPass?appointmentId=${app.appointmentId}" class="pass-link">查看通行码</a>
+                                    <a href="${pageContext.request.contextPath}/mobile/viewPass?appointmentId=${app.appointmentId}&originalApplicantIdCard=${param.applicantIdCard}" class="pass-link">查看通行码</a>
+                                </c:if>
+                                <c:if test="${app.status ne 'APPROVED'}">
+                                    <span style="color:#999;">无通行码</span>
                                 </c:if>
                             </td>
                         </tr>

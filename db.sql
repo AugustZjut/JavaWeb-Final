@@ -32,6 +32,8 @@ CREATE TABLE IF NOT EXISTS "users" (
   "password_last_changed" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   "failed_login_attempts" INT NOT NULL DEFAULT 0,
   "lockout_time" TIMESTAMP NULL,
+  "password_change_required" BOOLEAN NOT NULL DEFAULT FALSE,
+  "can_manage_public_appointments" BOOLEAN NOT NULL DEFAULT FALSE, -- 是否有权限管理公众预约
   "created_at" TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
   "updated_at" TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT "fk_users_departments"
@@ -44,6 +46,7 @@ CREATE INDEX "fk_users_departments_idx" ON "users" ("department_id");
 COMMENT ON TABLE "users" IS '管理员信息表 (包括各类管理员)';
 COMMENT ON COLUMN "users"."password_hash" IS '密码 (SM3加密存储)';
 COMMENT ON COLUMN "users"."phone_number" IS '联系电话 (SM2/SM4 加密存储)';
+COMMENT ON COLUMN "users"."password_change_required" IS '是否需要强制修改密码 (TRUE: 是, FALSE: 否)';
 
 
 -- -----------------------------------------------------
@@ -124,7 +127,7 @@ CREATE TABLE IF NOT EXISTS "audit_logs" (
   "username" VARCHAR(100) NULL,
   "action_type" VARCHAR(100) NOT NULL,
   "target_entity" VARCHAR(100) NULL,
-  "target_entity_id" VARCHAR(100) NULL,
+  "target_entity_id" INT NULL,
   "details" TEXT NULL,
   "ip_address" VARCHAR(50) NULL,
   "log_timestamp" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,

@@ -23,9 +23,9 @@ public class Appointment {
 
     // 校区枚举
     public static class Campus {
-        public static final String MAIN = "MAIN";  // 主校区
-        public static final String SOUTH = "SOUTH";  // 南校区
-        public static final String EAST = "EAST";  // 东校区
+        public static final String MAIN = "朝晖校区"; 
+        public static final String SOUTH = "屏峰校区"; 
+        public static final String EAST = "莫干山校区"; 
     }
     
     // 预约ID，自增主键
@@ -143,6 +143,15 @@ public class Appointment {
 
     public List<AccompanyingPerson> getAccompanyingPersons() { return accompanyingPersons; }
     public void setAccompanyingPersons(List<AccompanyingPerson> accompanyingPersons) { this.accompanyingPersons = accompanyingPersons; }
+
+    // 以下是为了兼容旧代码中使用的appointmentTime属性添加的方法
+    public Timestamp getAppointmentTime() {
+        return entryDatetime;
+    }
+
+    public void setAppointmentTime(Timestamp appointmentTime) {
+        this.entryDatetime = appointmentTime;
+    }
 
     @Override
     public String toString() {

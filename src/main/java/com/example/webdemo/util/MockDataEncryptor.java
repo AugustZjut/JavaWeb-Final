@@ -41,12 +41,22 @@ public class MockDataEncryptor {
                 "13800138003", // for cs_admin
                 "13800138004", // for security_audit
                 "13800138005", // for ee_admin
+                "13912345678", // for finance_admin
+                "13987654321", // for hr_admin
                 "13900139001", // for applicant 张三
                 "13900139002", // for applicant 李四
                 "13900139003", // for applicant 王五
                 "13900139004", // for applicant 赵六
+                "13811112222", // for applicant 刘备
+                "13822223333", // for applicant 曹操
+                "13833334444", // for applicant 马化腾
+                "13844445555", // for applicant 汪滔
+                "13855556666", // for applicant 孙权
+                "13866667777", // for applicant 姜维
                 "13900139005", // for accompanying person 赵六的妻子
-                "13900139006"  // for accompanying person 赵六的儿子
+                "13900139006", // for accompanying person 赵六的儿子
+                "13877778888", // for accompanying person 孙权的秘书
+                "13888889999"  // for accompanying person 孙权的助理
             };
 
             String[] idCards = {
@@ -54,17 +64,33 @@ public class MockDataEncryptor {
                 "110101199003072222", // for applicant 李四
                 "110101199003073333", // for applicant 王五
                 "110101199003074444", // for applicant 赵六
+                "210202198001011011", // for applicant 刘备
+                "310101197505052022", // for applicant 曹操
+                "440301197110293033", // for applicant 马化腾
+                "440301198008064044", // for applicant 汪滔
+                "32050218203045055",  // for applicant 孙权
+                "51010219502036066",  // for applicant 姜维
                 "110101199003075555", // for accompanying person 赵六的妻子
-                "110101199003076666"  // for accompanying person 赵六的儿子
+                "110101199003076666", // for accompanying person 赵六的儿子
+                "32050218203045077",  // for accompanying person 孙权的秘书
+                "32050218203045088"   // for accompanying person 孙权的助理
             };
             
             String[] names = {
-                "张三", // for applicant 张三
-                "李四", // for applicant 李四
-                "王五", // for applicant 王五
-                "赵六", // for applicant 赵六
-                "陈美丽", // for accompanying person 赵六的妻子
-                "赵小明"  // for accompanying person 赵六的儿子
+                "张三",
+                "李四",
+                "王五",
+                "赵六",
+                "刘备",
+                "曹操",
+                "马化腾",
+                "汪滔",
+                "孙权",
+                "姜维",
+                "赵六的妻子",
+                "赵六的儿子",
+                "孙权的秘书",
+                "孙权的助理"
             };
 
             // --- 3. 执行加密并打印结果 ---

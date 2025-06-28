@@ -5,14 +5,34 @@
 
 <html>
 <head>
-    <title>Review Official Appointment</title>
+    <title>审核公务预约</title>
     <style>
-        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f4f4f4; color: #333; }
+        body { font-family: Arial, sans-serif; margin: 0; padding: 0; background-color: #f4f4f4; }
+        .header {
+            background-color: #333;
+            color: white;
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .header .logo { 
+            font-size: 18px; 
+            font-weight: bold; 
+        }
+        .header a { 
+            color: white; 
+            text-decoration: none; 
+            margin-left: 15px; 
+        }
+        .container { width: 90%; margin: 20px auto; background-color: #fff; padding: 20px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
         h1 { color: #333; }
-        .container { background-color: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); width: 70%; margin-top: 20px; }
+        .form-container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
         .detail-item { margin-bottom: 15px; }
         .detail-item label { font-weight: bold; display: inline-block; width: 180px; }
-        .detail-item span { }
         .actions { margin-top: 20px; }
         .button {
             padding: 10px 15px;
@@ -30,114 +50,127 @@
         .reject-button:hover { background-color: #c82333; }
         .cancel-button { background-color: #6c757d; color: white; }
         .cancel-button:hover { background-color: #5a6268; }
-        textarea { width: calc(100% - 22px); padding: 10px; margin-top:5px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; min-height: 80px;}
+        textarea { width: 100%; padding: 10px; margin-top:5px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; min-height: 80px;}
+        .message {
+            padding: 10px;
+            margin-bottom: 15px;
+            border-radius: 4px;
+        }
+        .success-message { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error-message { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
     </style>
 </head>
 <body>
+    <div class="header">
+        <div class="logo">审核公务预约</div>
+        <div>
+            <a href="${pageContext.request.contextPath}/admin/officialAppointmentManagement">返回公务预约列表</a>
+            <a href="${pageContext.request.contextPath}/admin/dashboard.jsp">返回控制台</a>
+        </div>
+    </div>
+
     <div class="container">
-        <h1>Review Official Appointment (ID: <c:out value="${appointment.id}"/>)</h1>
+        <div class="form-container">
+            <h1>审核公务预约 (ID: <c:out value="${appointment.id}"/>)</h1>
 
-        <div class="detail-item">
-            <label>Campus Area:</label>
-            <span><c:out value="${appointment.campusArea}"/></span>
-        </div>
-        <div class="detail-item">
-            <label>Appointment Time:</label>
-            <span><fmt:formatDate value="${appointment.appointmentTime}" pattern="yyyy-MM-dd HH:mm"/></span>
-        </div>
-        <div class="detail-item">
-            <label>Visitor Name:</label>
-            <span><c:out value="${DataMaskingUtils.maskName(appointment.visitorName)}"/></span>
-        </div>
-        <div class="detail-item">
-            <label>Visitor ID Card:</label>
-            <span><c:out value="${DataMaskingUtils.maskIdCard(appointment.visitorIdCard)}"/></span>
-        </div>
-        <div class="detail-item">
-            <label>Visitor Phone:</label>
-            <span><c:out value="${DataMaskingUtils.maskPhone(appointment.decryptedVisitorPhone)}"/></span>
-        </div>
-        <div class="detail-item">
-            <label>Organization:</label>
-            <span><c:out value="${appointment.visitorOrganization}"/></span>
-        </div>
-        <div class="detail-item">
-            <label>Transport:</label>
-            <span><c:out value="${appointment.transportType}"/></span>
-        </div>
-        <c:if test="${not empty appointment.licensePlate}">
             <div class="detail-item">
-                <label>License Plate:</label>
-                <span><c:out value="${appointment.licensePlate}"/></span>
+                <label>校区:</label>
+                <span><c:out value="${appointment.campusArea}"/></span>
             </div>
-        </c:if>
+            <div class="detail-item">
+                <label>预约时间:</label>
+                <span><fmt:formatDate value="${appointment.appointmentTime}" pattern="yyyy-MM-dd HH:mm"/></span>
+            </div>
+            <div class="detail-item">
+                <label>访客姓名:</label>
+                <span><c:out value="${DataMaskingUtils.maskName(appointment.visitorName)}"/></span>
+            </div>
+            <div class="detail-item">
+                <label>访客身份证:</label>
+                <span><c:out value="${DataMaskingUtils.maskIdCard(appointment.visitorIdCard)}"/></span>
+            </div>
+            <div class="detail-item">
+                <label>访客电话:</label>
+                <span><c:out value="${DataMaskingUtils.maskPhone(appointment.decryptedVisitorPhone)}"/></span>
+            </div>
+            <div class="detail-item">
+                <label>工作单位:</label>
+                <span><c:out value="${appointment.visitorOrganization}"/></span>
+            </div>
+            <div class="detail-item">
+                <label>交通方式:</label>
+                <span><c:out value="${appointment.transportType}"/></span>
+            </div>
+            <c:if test="${not empty appointment.licensePlate}">
+                <div class="detail-item">
+                    <label>车牌号:</label>
+                    <span><c:out value="${appointment.licensePlate}"/></span>
+                </div>
+            </c:if>
 
-        <hr style="margin: 20px 0;">
-
-        <div class="detail-item">
-            <label>Visiting Department:</label>
-            <span><c:out value="${appointment.visitDepartment}"/></span>
-        </div>
-        <div class="detail-item">
-            <label>Contact Person:</label>
-            <span><c:out value="${appointment.visitContactPerson}"/></span>
-        </div>
-        <div class="detail-item">
-            <label>Reason for Visit:</label>
-            <div style="white-space: pre-wrap; margin-left:185px;"><c:out value="${appointment.visitReason}"/></div>
-        </div>
-        
-        <c:if test="${not empty appointment.accompanyingPersons}">
             <hr style="margin: 20px 0;">
-            <h3>Accompanying Persons:</h3>
-            <c:forEach var="person" items="${appointment.accompanyingPersons}" varStatus="status">
-                <div class="detail-item">
-                    <label>Person ${status.count} Name:</label>
-                    <span><c:out value="${DataMaskingUtils.maskName(person.name)}"/></span>
-                </div>
-                <div class="detail-item">
-                    <label>Person ${status.count} ID Card:</label>
-                    <span><c:out value="${DataMaskingUtils.maskIdCard(person.idCard)}"/></span>
-                </div>
-                 <div class="detail-item">
-                    <label>Person ${status.count} Phone:</label>
-                    <span><c:out value="${DataMaskingUtils.maskPhone(person.decryptedPhone)}"/></span>
-                </div>
-                <br/>
-            </c:forEach>
-        </c:if>
 
-        <hr style="margin: 20px 0;">
-        <div class="detail-item">
-            <label>Current Status:</label>
-            <span style="font-weight:bold;"><c:out value="${appointment.status}"/></span>
-        </div>
-         <div class="detail-item">
-            <label>Submitted At:</label>
-            <span><fmt:formatDate value="${appointment.createdAt}" pattern="yyyy-MM-dd HH:mm:ss"/></span>
-        </div>
-
-        <c:if test="${appointment.status == 'Pending' || appointment.status == 'Pending Approval'}">
-            <div class="actions">
-                <form action="${pageContext.request.contextPath}/admin/officialAppointments" method="post" style="display:inline;">
-                    <input type="hidden" name="action" value="approve">
-                    <input type="hidden" name="appointmentId" value="${appointment.id}">
-                    <%-- <label for="approvalNotes">Approval Notes (Optional):</label><br>
-                    <textarea id="approvalNotes" name="approvalNotes"></textarea><br> --%>
-                    <button type="submit" class="button approve-button">Approve</button>
-                </form>
-                <form action="${pageContext.request.contextPath}/admin/officialAppointments" method="post" style="display:inline;">
-                    <input type="hidden" name="action" value="reject">
-                    <input type="hidden" name="appointmentId" value="${appointment.id}">
-                    <%-- <label for="rejectionReason">Rejection Reason (Required if rejecting):</label><br>
-                    <textarea id="rejectionReason" name="rejectionReason" required></textarea><br> --%>
-                    <button type="submit" class="button reject-button">Reject</button>
-                </form>
+            <div class="detail-item">
+                <label>访问部门:</label>
+                <span><c:out value="${appointment.visitDepartment}"/></span>
             </div>
-        </c:if>
+            <div class="detail-item">
+                <label>联系人:</label>
+                <span><c:out value="${appointment.visitContactPerson}"/></span>
+            </div>
+            <div class="detail-item">
+                <label>访问事由:</label>
+                <div style="white-space: pre-wrap; margin-left:185px;"><c:out value="${appointment.visitReason}"/></div>
+            </div>
+            
+            <c:if test="${not empty appointment.accompanyingPersons}">
+                <hr style="margin: 20px 0;">
+                <h3>随行人员:</h3>
+                <c:forEach var="person" items="${appointment.accompanyingPersons}" varStatus="status">
+                    <div class="detail-item">
+                        <label>人员${status.count} 姓名:</label>
+                        <span><c:out value="${DataMaskingUtils.maskName(person.name)}"/></span>
+                    </div>
+                    <div class="detail-item">
+                        <label>人员${status.count} 身份证:</label>
+                        <span><c:out value="${DataMaskingUtils.maskIdCard(person.idCard)}"/></span>
+                    </div>
+                     <div class="detail-item">
+                        <label>人员${status.count} 电话:</label>
+                        <span><c:out value="${DataMaskingUtils.maskPhone(person.decryptedPhone)}"/></span>
+                    </div>
+                    <br/>
+                </c:forEach>
+            </c:if>
 
-        <div style="margin-top: 20px;">
-            <a href="${pageContext.request.contextPath}/admin/officialAppointments?action=list" class="button cancel-button">Back to List</a>
+            <hr style="margin: 20px 0;">
+            <div class="detail-item">
+                <label>当前状态:</label>
+                <span style="font-weight:bold;"><c:out value="${appointment.status}"/></span>
+            </div>
+             <div class="detail-item">
+                <label>提交时间:</label>
+                <span><fmt:formatDate value="${appointment.createdAt}" pattern="yyyy-MM-dd HH:mm:ss"/></span>
+            </div>
+
+            <c:if test="${appointment.status == 'Pending' || appointment.status == 'Pending Approval'}">
+                <div class="actions">
+                    <form action="${pageContext.request.contextPath}/admin/officialAppointmentManagement" method="post" style="display:inline;">
+                        <input type="hidden" name="action" value="approve">
+                        <input type="hidden" name="appointmentId" value="${appointment.id}">
+                        <button type="submit" class="button approve-button">批准</button>
+                    </form>
+                    <form action="${pageContext.request.contextPath}/admin/officialAppointmentManagement" method="post" style="display:inline;">
+                        <input type="hidden" name="action" value="reject">
+                        <input type="hidden" name="appointmentId" value="${appointment.id}">
+                        <button type="submit" class="button reject-button">拒绝</button>
+                    </form>
+                </div>
+            </c:if>
+
+            <div style="margin-top: 20px;">
+                <a href="${pageContext.request.contextPath}/admin/officialAppointmentManagement?action=list" class="button cancel-button">返回列表</a>
+            </div>
         </div>
     </div>
 </body>

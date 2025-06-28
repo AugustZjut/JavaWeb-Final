@@ -113,9 +113,9 @@
 
             <label for="campus">到访校区:</label>
             <select id="campus" name="campus" required>
-                <option value="ZHAOHUI_CAMPUS">朝晖校区</option>
-                <option value="PINGFENG_CAMPUS">屏峰校区</option>
-                <option value="MOGANSHAN_CAMPUS">莫干山校区</option>
+                <option value="朝晖校区">朝晖校区</option>
+                <option value="屏峰校区">屏峰校区</option>
+                <option value="莫干山校区">莫干山校区</option>
             </select>
 
             <label for="appointmentTime">预约入校时间:</label>
