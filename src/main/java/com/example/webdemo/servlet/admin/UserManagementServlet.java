@@ -290,7 +290,6 @@ public class UserManagementServlet extends HttpServlet {
         String userIdStr = request.getParameter("userId");
         String newRole = request.getParameter("role");
         try {
-            // 修复类型转换: String转为int
             User userToUpdate = userDAO.findById(Integer.parseInt(userIdStr));
 
             if (userToUpdate == null) {
@@ -323,18 +322,18 @@ public class UserManagementServlet extends HttpServlet {
             if (deptIdStr != null && !deptIdStr.isEmpty()) {
                 userToUpdate.setDepartmentId(Integer.parseInt(deptIdStr));
             }
-            // 处理公众预约管理权限
-            String canManagePublicAppointments = request.getParameter("canManagePublicAppointments");
-            
-            // 系统管理员和学校管理员自动拥有公众预约管理权限
-            // 部门管理员根据表单参数设置，审计管理员不允许有此权限
+            // 权限处理：公众+公务
             if ("SYSTEM_ADMIN".equals(newRole) || "SCHOOL_ADMIN".equals(newRole)) {
                 userToUpdate.setCanManagePublicAppointments(true);
+                userToUpdate.setCanManageOfficialAppointments(true);
             } else if ("DEPARTMENT_ADMIN".equals(newRole)) {
-                userToUpdate.setCanManagePublicAppointments("true".equals(canManagePublicAppointments));
+                boolean canPublic = "true".equals(request.getParameter("canManagePublicAppointments"));
+                boolean canOfficial = "true".equals(request.getParameter("canManageOfficialAppointments"));
+                userToUpdate.setCanManagePublicAppointments(canPublic);
+                userToUpdate.setCanManageOfficialAppointments(canOfficial);
             } else {
-                // 审计管理员或其他角色不允许有此权限
                 userToUpdate.setCanManagePublicAppointments(false);
+                userToUpdate.setCanManageOfficialAppointments(false);
             }
 
             // 处理锁定状态更新

@@ -81,7 +81,7 @@ public class AppointmentDAO {
             pstmtAppointment.setString(1, appointment.getCampus());
             pstmtAppointment.setTimestamp(2, appointment.getEntryDatetime());
             pstmtAppointment.setString(3, appointment.getApplicantOrganization());
-            pstmtAppointment.setString(4, CryptoUtils.encryptSM4(appointment.getApplicantName(), sm4KeyHex));
+            pstmtAppointment.setString(4, appointment.getApplicantName()); // 不加密姓名
             pstmtAppointment.setString(5, CryptoUtils.encryptSM4(appointment.getApplicantIdCard(), sm4KeyHex));
             pstmtAppointment.setString(6, CryptoUtils.encryptSM4(appointment.getApplicantPhone(), sm4KeyHex));
             pstmtAppointment.setString(7, appointment.getTransportMode());
@@ -153,29 +153,8 @@ public class AppointmentDAO {
 
     public List<Appointment> getAppointmentsByApplicantIdCard(String applicantIdCard) throws SQLException {
         List<Appointment> appointments = new ArrayList<>();
-        // This query needs to fetch all and then filter by decrypted ID card,
-        // or if the DB supports it, use a function for decryption (less likely with SM2).
-        // For now, let's assume we might need to iterate or use a different strategy if this is too slow.
-        // A direct WHERE on encrypted data only works if the encrypted value is identical every time (no salt/IV changes).
-        // SM2 is asymmetric, so this is tricky. A search index on a hash of the ID might be better.
-        // For simplicity here, we will fetch and decrypt. This is NOT efficient for large datasets.
-        
         String encryptedApplicantIdCard;
         try {
-            // We need to encrypt the search term to match what's in DB.
-            // However, direct comparison of SM2 encrypted ciphertexts is generally not reliable due to the nature of asymmetric crypto.
-            // A better approach for searching encrypted data is to use a blind index (e.g., store a hash of the ID card).
-            // For this example, we'll proceed with the less optimal approach of decrypting all relevant records.
-            // This implies we cannot directly use `WHERE applicant_id_card = ?` with an encrypted value effectively for SM2.
-            // We will retrieve records and decrypt in application layer. This is INEFFICIENT.
-            // A proper solution would involve re-thinking the search strategy for encrypted data.
-            // One common pattern is to store a separate, searchable hash (e.g., HMAC-SHA256) of the ID card.
-            // For now, we will retrieve all appointments and filter in memory (VERY BAD FOR PERFORMANCE).
-            // A more realistic approach for a small number of user's appointments:
-            // If a user is logged in and we have their *unencrypted* ID, we can encrypt it and search.
-            // But for a public search by ID, this is problematic.
-            // The requirement is "My Appointments": Query history. This implies the user is known.
-            // Let's assume for "My Appointments", the user provides their ID card, and we encrypt it for the query.
              encryptedApplicantIdCard = CryptoUtils.encryptSM4(applicantIdCard, sm4KeyHex);
         } catch (Exception e) {
             throw new SQLException("Failed to encrypt ID card for search.", e);
@@ -1150,87 +1129,91 @@ public class AppointmentDAO {
     }
 
     /**
-     * 根据申请人姓名、身份证号和手机号进行多条件查询预约记录
-     * 至少需要提供一个查询条件
+     * 移动端“我的预约”多条件查询
      */
-    public List<Appointment> searchAppointments(String applicantName, String applicantIdCard, String applicantPhone) 
-            throws SQLException {
+    public List<Appointment> searchAppointments(
+            String applicantName,
+            String applicantIdCard,
+            String applicantPhone,
+            Integer applicantUserId,
+            Integer departmentId,
+            String appointmentType,
+            String status,
+            java.util.Date startDate,
+            java.util.Date endDate
+    ) throws SQLException {
         List<Appointment> appointments = new ArrayList<>();
-        List<String> whereClauses = new ArrayList<>();
+        StringBuilder sql = new StringBuilder("SELECT * FROM appointments WHERE 1=1");
         List<Object> params = new ArrayList<>();
-        
-        StringBuilder sqlBuilder = new StringBuilder("SELECT * FROM appointments WHERE ");
-        
-        // 因为是加密字段，我们先尝试加密查询条件
-        try {
-            // 根据提供的参数构建查询条件
-            if (applicantName != null && !applicantName.trim().isEmpty()) {
-                String encryptedName = CryptoUtils.encryptSM4(applicantName.trim(), sm4KeyHex);
-                whereClauses.add("applicant_name = ?");
-                params.add(encryptedName);
-            }
-            
-            if (applicantIdCard != null && !applicantIdCard.trim().isEmpty()) {
-                String encryptedIdCard = CryptoUtils.encryptSM4(applicantIdCard.trim(), sm4KeyHex);
-                whereClauses.add("applicant_id_card = ?");
-                params.add(encryptedIdCard);
-            }
-            
-            if (applicantPhone != null && !applicantPhone.trim().isEmpty()) {
-                String encryptedPhone = CryptoUtils.encryptSM4(applicantPhone.trim(), sm4KeyHex);
-                whereClauses.add("applicant_phone = ?");
-                params.add(encryptedPhone);
-            }
-            
-            // 如果没有查询条件，返回空列表
-            if (whereClauses.isEmpty()) {
-                return appointments;
-            }
-            
-            // 构建SQL语句
-            sqlBuilder.append(String.join(" OR ", whereClauses));
-            sqlBuilder.append(" ORDER BY entry_datetime DESC");
-            
-            String sql = sqlBuilder.toString();
-            
-            // 执行查询
-            try (Connection conn = dataSource.getConnection();
-                 PreparedStatement pstmt = conn.prepareStatement(sql)) {
-                
-                // 设置查询参数
-                for (int i = 0; i < params.size(); i++) {
-                    pstmt.setObject(i + 1, params.get(i));
-                }
-                
-                try (ResultSet rs = pstmt.executeQuery()) {
-                    while (rs.next()) {
-                        Appointment app = mapResultSetToAppointment(rs, true); // 解密PII字段
-                        
-                        // 确认解密后的数据是否匹配（可选）
-                        boolean matches = true;
-                        if (applicantName != null && !applicantName.trim().isEmpty()) {
-                            matches = matches && (app.getApplicantName() != null && 
-                                     app.getApplicantName().contains(applicantName.trim()));
-                        }
-                        if (applicantIdCard != null && !applicantIdCard.trim().isEmpty()) {
-                            matches = matches && (app.getApplicantIdCard() != null && 
-                                     app.getApplicantIdCard().equals(applicantIdCard.trim()));
-                        }
-                        if (applicantPhone != null && !applicantPhone.trim().isEmpty()) {
-                            matches = matches && (app.getApplicantPhone() != null && 
-                                     app.getApplicantPhone().equals(applicantPhone.trim()));
-                        }
-                        
-                        if (matches) {
-                            appointments.add(app);
-                        }
-                    }
-                }
-            }
-        } catch (Exception e) {
-            throw new SQLException("搜索预约时发生错误: " + e.getMessage(), e);
+
+        // 只查当前用户
+        if (applicantUserId != null) {
+            sql.append(" AND applicant_user_id = ?");
+            params.add(applicantUserId);
         }
-        
+        if (departmentId != null) {
+            sql.append(" AND official_visit_department_id = ?");
+            params.add(departmentId);
+        }
+        if (appointmentType != null && !appointmentType.trim().isEmpty()) {
+            sql.append(" AND appointment_type = ?");
+            params.add(appointmentType);
+        }
+        if (status != null && !status.trim().isEmpty()) {
+            sql.append(" AND status = ?");
+            params.add(status);
+        }
+        if (startDate != null) {
+            sql.append(" AND entry_datetime >= ?");
+            params.add(new java.sql.Timestamp(startDate.getTime()));
+        }
+        if (endDate != null) {
+            sql.append(" AND entry_datetime <= ?");
+            params.add(new java.sql.Timestamp(endDate.getTime()));
+        }
+        // 姓名模糊查（如未加密）
+        if (applicantName != null && !applicantName.trim().isEmpty()) {
+            sql.append(" AND applicant_name LIKE ?");
+            params.add("%" + applicantName + "%");
+        }
+        // 手机号加密精确查
+        if (applicantPhone != null && !applicantPhone.trim().isEmpty()) {
+            try {
+                String encryptedPhone = CryptoUtils.encryptSM4(applicantPhone, sm4KeyHex);
+                sql.append(" AND applicant_phone = ?");
+                params.add(encryptedPhone);
+            } catch (Exception e) {
+                throw new SQLException("手机号加密失败", e);
+            }
+        }
+        // 身份证加密精确查
+        if (applicantIdCard != null && !applicantIdCard.trim().isEmpty()) {
+            try {
+                String encryptedIdCard = CryptoUtils.encryptSM4(applicantIdCard, sm4KeyHex);
+                sql.append(" AND applicant_id_card = ?");
+                params.add(encryptedIdCard);
+            } catch (Exception e) {
+                throw new SQLException("身份证加密失败", e);
+            }
+        }
+        sql.append(" ORDER BY entry_datetime DESC");
+
+        try (Connection conn = dataSource.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql.toString())) {
+            setStatementParams(pstmt, params);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                while (rs.next()) {
+                    appointments.add(mapResultSetToAppointment(rs, true));
+                }
+            }
+        } catch (SQLException e) {
+            logger.error("searchAppointments查询失败", e);
+            throw e;
+        } catch (Exception e) {
+            logger.error("searchAppointments解密失败", e);
+            throw new SQLException("searchAppointments解密失败", e);
+        }
         return appointments;
     }
+
 }

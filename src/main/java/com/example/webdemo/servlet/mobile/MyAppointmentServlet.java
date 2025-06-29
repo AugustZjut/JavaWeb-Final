@@ -35,41 +35,59 @@ public class MyAppointmentServlet extends HttpServlet {
         String applicantName = request.getParameter("applicantName");
         String applicantIdCard = request.getParameter("applicantIdCard");
         String applicantPhone = request.getParameter("applicantPhone");
+        String departmentIdStr = request.getParameter("departmentId");
+        String appointmentType = request.getParameter("appointmentType");
+        String status = request.getParameter("status");
+        String startDateStr = request.getParameter("startDate");
+        String endDateStr = request.getParameter("endDate");
+        Integer departmentId = null;
+        if (departmentIdStr != null && !departmentIdStr.trim().isEmpty()) {
+            try { departmentId = Integer.parseInt(departmentIdStr); } catch (Exception ignored) {}
+        }
+        java.util.Date startDate = null, endDate = null;
+        try {
+            if (startDateStr != null && !startDateStr.trim().isEmpty()) {
+                startDate = java.sql.Date.valueOf(startDateStr);
+            }
+            if (endDateStr != null && !endDateStr.trim().isEmpty()) {
+                endDate = java.sql.Date.valueOf(endDateStr);
+            }
+        } catch (Exception ignored) {}
 
-        // 检查是否有至少一个查询条件
-        boolean hasQueryParam = (applicantName != null && !applicantName.trim().isEmpty()) ||
-                                (applicantIdCard != null && !applicantIdCard.trim().isEmpty()) ||
-                                (applicantPhone != null && !applicantPhone.trim().isEmpty());
+        // 必须三项主身份参数全部填写且精确匹配才允许查询
+        boolean hasAllIdentity = (applicantName != null && !applicantName.trim().isEmpty()) &&
+                                 (applicantIdCard != null && !applicantIdCard.trim().isEmpty()) &&
+                                 (applicantPhone != null && !applicantPhone.trim().isEmpty());
 
-        if (hasQueryParam) {
+        if (!hasAllIdentity) {
+            request.setAttribute("errorMessage", "为保护隐私，必须同时输入姓名、身份证号和手机号，且全部精确匹配，才能查询预约记录。");
+        } else if (applicantIdCard != null && !applicantIdCard.trim().isEmpty() &&
+                   !applicantIdCard.matches("^\\d{17}[\\dXx]$|^\\d{15}$")) {
+            request.setAttribute("errorMessage", "身份证号格式不正确。");
+        } else {
             try {
-                // 验证身份证号格式（如果提供）
-                if (applicantIdCard != null && !applicantIdCard.trim().isEmpty() && 
-                    !applicantIdCard.matches("^\\d{17}[\\dXx]$|^\\d{15}$")) {
-                    request.setAttribute("errorMessage", "身份证号格式不正确。");
-                } else {
-                    // 使用修改后的DAO方法查询预约
-                    List<Appointment> appointments = appointmentDAO.searchAppointments(
-                        applicantName != null ? applicantName.trim() : null,
-                        applicantIdCard != null ? applicantIdCard.trim() : null,
-                        applicantPhone != null ? applicantPhone.trim() : null
-                    );
-                    request.setAttribute("appointments", appointments);
-                    
-                    // 保存原始查询参数（用于查看通行码后返回查询结果页面）
-                    if (applicantIdCard != null && !applicantIdCard.trim().isEmpty()) {
-                        request.setAttribute("originalApplicantIdCard", applicantIdCard.trim());
-                    }
-                }
+                List<Appointment> appointments = appointmentDAO.searchAppointments(
+                    applicantName.trim(),
+                    applicantIdCard.trim(),
+                    applicantPhone.trim(),
+                    null, // applicantUserId
+                    departmentId,
+                    appointmentType != null && !appointmentType.trim().isEmpty() ? appointmentType.trim() : null,
+                    status != null && !status.trim().isEmpty() ? status.trim() : null,
+                    startDate,
+                    endDate
+                );
+                request.setAttribute("appointments", appointments);
+                // 保存原始查询参数（用于查看通行码后返回查询结果页面）
+                request.setAttribute("originalApplicantIdCard", applicantIdCard.trim());
             } catch (SQLException e) {
-                e.printStackTrace(); // 应该使用日志框架记录
+                e.printStackTrace();
                 request.setAttribute("errorMessage", "查询预约失败: " + e.getMessage());
             } catch (Exception e) {
-                e.printStackTrace(); // 应该使用日志框架记录
+                e.printStackTrace();
                 request.setAttribute("errorMessage", "查询处理时发生意外错误: " + e.getMessage());
             }
         }
-        
         request.getRequestDispatcher("/mobile/myAppointments.jsp").forward(request, response);
     }
 }

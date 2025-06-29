@@ -46,9 +46,6 @@
                 <input type="submit" value="查询" style="margin-right: 10px;">
                 <a href="${pageContext.request.contextPath}/mobile/makeAppointment.jsp" style="display: inline-block; background-color: #007bff; color: white; padding: 10px 20px; border-radius: 4px; text-decoration: none;">我要预约</a>
             </div>
-            <div style="margin-top: 10px; font-size: 0.9em; color: #666;">
-                提示: 至少需要输入一项查询条件(姓名、身份证号或手机号)
-            </div>
         </form>
 
         <c:if test="${not empty errorMessage}">
